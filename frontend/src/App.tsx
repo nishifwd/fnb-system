@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@heroui/react'
-import { api, type BusinessProfile, type DiningTable, type MenuCategory, type MenuItem } from './api'
+import { api, type BusinessProfile, type DiningTable, type FloorArea, type MenuCategory, type MenuItem } from './api'
 import { BusinessSettings } from './components/BusinessSettings'
 import { MenuManager } from './components/MenuManager'
 import { TableManager } from './components/TableManager'
@@ -11,6 +11,7 @@ type Snapshot = {
   business: BusinessProfile | null
   categories: MenuCategory[]
   items: MenuItem[]
+  areas: FloorArea[]
   tables: DiningTable[]
 }
 
@@ -22,10 +23,10 @@ const navigation: { id: Section, label: string, symbol: string }[] = [
 ]
 
 async function fetchSnapshot(): Promise<Snapshot> {
-  const [, business, categories, items, tables] = await Promise.all([
-    api.health(), api.business(), api.categories(), api.items(), api.tables(),
+  const [, business, categories, items, areas, tables] = await Promise.all([
+    api.health(), api.business(), api.categories(), api.items(), api.areas(), api.tables(),
   ])
-  return { business, categories, items, tables }
+  return { business, categories, items, areas, tables }
 }
 
 function App() {
@@ -101,14 +102,14 @@ function App() {
                 <button type="button" className="stat-card" onClick={() => setSection('business')}><span>Business profile</span><strong>{snapshot.business ? 'Ready' : 'Set up'}</strong><small>{snapshot.business ? snapshot.business.currency : 'Add your details'} ↗</small></button>
                 <button type="button" className="stat-card" onClick={() => setSection('menu')}><span>Menu categories</span><strong>{snapshot.categories.length}</strong><small>Manage categories ↗</small></button>
                 <button type="button" className="stat-card" onClick={() => setSection('menu')}><span>Menu items</span><strong>{snapshot.items.length}</strong><small>Manage items ↗</small></button>
-                <button type="button" className="stat-card" onClick={() => setSection('tables')}><span>Dining tables</span><strong>{snapshot.tables.length}</strong><small>Arrange floor ↗</small></button>
+                <button type="button" className="stat-card" onClick={() => setSection('tables')}><span>Dining tables</span><strong>{snapshot.tables.length}</strong><small>{snapshot.areas.length} areas · Arrange floor ↗</small></button>
               </div>
               <div className="panel next-step-panel"><div><p className="eyebrow">BUILDING BLOCKS</p><h2>Prepare your workspace</h2><p>Start with your business details, then add menu items and arrange tables. Ordering, kitchen tracking, QR codes, and invoices come in later phases.</p></div><Button variant="secondary" onPress={() => setSection('menu')}>Manage menu</Button></div>
             </div>
           )}
           {!loading && snapshot && section === 'business' && <BusinessSettings profile={snapshot.business} onChanged={refresh} />}
           {!loading && snapshot && section === 'menu' && <MenuManager categories={snapshot.categories} items={snapshot.items} currency={snapshot.business?.currency ?? 'MYR'} onChanged={refresh} />}
-          {!loading && snapshot && section === 'tables' && <TableManager tables={snapshot.tables} onChanged={refresh} />}
+          {!loading && snapshot && section === 'tables' && <TableManager areas={snapshot.areas} tables={snapshot.tables} onChanged={refresh} />}
         </main>
       </div>
     </div>

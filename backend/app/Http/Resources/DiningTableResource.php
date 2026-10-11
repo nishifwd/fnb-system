@@ -16,9 +16,11 @@ class DiningTableResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'floor_area_id' => $this->floor_area_id,
             'label' => $this->label,
             'capacity' => $this->capacity,
             'shape' => $this->shape,
+            'rotation' => $this->rotation,
             'position_x' => $this->position_x,
             'position_y' => $this->position_y,
         ];

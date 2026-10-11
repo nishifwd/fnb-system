@@ -37,9 +37,9 @@ npm run dev
 
 Open the local URL printed by Vite (usually [http://localhost:5173](http://localhost:5173)). The page should show **Laravel API connected**. Vite proxies `/api` requests to Laravel on `127.0.0.1:8001`, so keep both terminals running. You can also check [http://127.0.0.1:8001/api/v1/health](http://127.0.0.1:8001/api/v1/health) directly; it returns `{"status":"ok","service":"fnb-system"}`.
 
-Use the sidebar to edit **Business**, **Menu**, and **Tables**. In Tables, drag a table on the floor plan or enter exact X/Y positions. Categories containing items cannot be deleted until those items are removed.
+Use the sidebar to edit **Business**, **Menu**, and **Tables**. In Tables, create areas such as Indoor and Outdoor, switch between their floor plans, and move a table to another area in its editor. Drag tables on the floor plan or enter exact X/Y positions. Choose a round, square, or rectangular table; rectangles have a visibly longer side. Use **Rotate 90°** or the rotation selector to turn a table, then save it. The table list also has a **Rotate** action that saves immediately. Existing tables are placed in Indoor when the new migration runs. Categories containing items cannot be deleted until those items are removed.
 
-For optional fictional sample data, run `php artisan db:seed` from `backend`. Seeding can be run again without duplicating the sample records.
+For optional fictional sample data, run `php artisan db:seed` from `backend`. On a fresh database it adds Indoor and Outdoor areas, including a rotated Outdoor table. Seeding can be run again without duplicating the sample records.
 
 If Herd works in a normal terminal but `php` is unavailable in an older terminal, close and reopen it so the PATH refreshes.
 

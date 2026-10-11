@@ -25,15 +25,24 @@ export type MenuItem = {
 
 export type DiningTable = {
   id: number
+  floor_area_id: number
   label: string
   capacity: number
   shape: 'round' | 'square' | 'rectangle'
+  rotation: 0 | 90 | 180 | 270
   position_x: string
   position_y: string
 }
 
+export type FloorArea = {
+  id: number
+  name: string
+  sort_order: number
+}
+
 export type BusinessInput = Omit<BusinessProfile, 'id'>
 export type CategoryInput = Omit<MenuCategory, 'id'>
+export type AreaInput = Omit<FloorArea, 'id'>
 export type ItemInput = Omit<MenuItem, 'id' | 'price'> & { price: number }
 export type TableInput = Omit<DiningTable, 'id' | 'position_x' | 'position_y'> & {
   position_x: number
@@ -87,6 +96,10 @@ export const api = {
   saveItem: (data: ItemInput, id?: number) =>
     request<MenuItem>(id ? `/items/${id}` : '/items', id ? 'PUT' : 'POST', data),
   deleteItem: (id: number) => request<void>(`/items/${id}`, 'DELETE'),
+  areas: () => request<FloorArea[]>('/areas'),
+  saveArea: (data: AreaInput, id?: number) =>
+    request<FloorArea>(id ? `/areas/${id}` : '/areas', id ? 'PUT' : 'POST', data),
+  deleteArea: (id: number) => request<void>(`/areas/${id}`, 'DELETE'),
   tables: () => request<DiningTable[]>('/tables'),
   saveTable: (data: TableInput, id?: number) =>
     request<DiningTable>(id ? `/tables/${id}` : '/tables', id ? 'PUT' : 'POST', data),

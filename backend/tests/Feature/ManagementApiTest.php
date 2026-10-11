@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DiningTable;
+use App\Models\FloorArea;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,33 +72,66 @@ class ManagementApiTest extends TestCase
 
     public function test_tables_can_be_arranged_and_validated(): void
     {
-        $table = $this->postJson('/api/v1/tables', [
-            'label' => 'T1',
-            'capacity' => 4,
-            'shape' => 'round',
-            'position_x' => 20,
-            'position_y' => 30,
+        $indoor = $this->getJson('/api/v1/areas')->assertOk()->assertJsonPath('data.0.name', 'Indoor')->json('data.0');
+        $outdoor = $this->postJson('/api/v1/areas', [
+            'name' => 'Outdoor', 'sort_order' => 1,
         ])->assertCreated()->json('data');
 
+        $table = $this->postJson('/api/v1/tables', [
+            'floor_area_id' => $outdoor['id'],
+            'label' => 'T1',
+            'capacity' => 4,
+            'shape' => 'rectangle',
+            'rotation' => 90,
+            'position_x' => 20,
+            'position_y' => 30,
+        ])->assertCreated()->assertJsonPath('data.rotation', 90)->json('data');
+
+        $this->deleteJson('/api/v1/areas/'.$outdoor['id'])->assertStatus(409);
+
         $this->postJson('/api/v1/tables', [
+            'floor_area_id' => 9999,
             'label' => 'T1',
             'capacity' => 40,
             'shape' => 'triangle',
+            'rotation' => 45,
             'position_x' => 120,
             'position_y' => 30,
-        ])->assertUnprocessable()->assertJsonValidationErrors(['label', 'capacity', 'shape', 'position_x']);
+        ])->assertUnprocessable()->assertJsonValidationErrors(['floor_area_id', 'label', 'capacity', 'shape', 'rotation', 'position_x']);
 
         $this->putJson('/api/v1/tables/'.$table['id'], [
+            'floor_area_id' => $indoor['id'],
             'label' => 'T1',
             'capacity' => 4,
             'shape' => 'square',
+            'rotation' => 180,
             'position_x' => 65.5,
             'position_y' => 40,
-        ])->assertOk()->assertJsonPath('data.position_x', '65.50');
+        ])->assertOk()->assertJsonPath('data.position_x', '65.50')->assertJsonPath('data.rotation', 180);
 
         $this->getJson('/api/v1/tables')->assertOk()->assertJsonCount(1, 'data');
+        $this->deleteJson('/api/v1/areas/'.$outdoor['id'])->assertNoContent();
         $this->deleteJson('/api/v1/tables/'.$table['id'])->assertNoContent();
         $this->assertDatabaseCount(DiningTable::class, 0);
+    }
+
+    public function test_floor_areas_can_be_renamed_and_validated(): void
+    {
+        $this->deleteJson('/api/v1/areas/1')->assertStatus(409);
+
+        $area = $this->postJson('/api/v1/areas', [
+            'name' => 'Patio', 'sort_order' => 2,
+        ])->assertCreated()->json('data');
+
+        $this->putJson('/api/v1/areas/'.$area['id'], [
+            'name' => 'Outdoor', 'sort_order' => 1,
+        ])->assertOk()->assertJsonPath('data.name', 'Outdoor');
+
+        $this->postJson('/api/v1/areas', [
+            'name' => 'Outdoor', 'sort_order' => 3,
+        ])->assertUnprocessable()->assertJsonValidationErrors('name');
+
+        $this->deleteJson('/api/v1/areas/'.$area['id'])->assertNoContent();
     }
 
     public function test_factory_records_can_be_read_from_the_api(): void
@@ -118,6 +152,7 @@ class ManagementApiTest extends TestCase
 
         $this->assertDatabaseCount(MenuCategory::class, 2);
         $this->assertDatabaseCount(MenuItem::class, 2);
-        $this->assertDatabaseCount(DiningTable::class, 2);
+        $this->assertDatabaseCount(FloorArea::class, 2);
+        $this->assertDatabaseCount(DiningTable::class, 3);
     }
 }
