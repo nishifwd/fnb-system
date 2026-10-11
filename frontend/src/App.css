@@ -1,0 +1,37 @@
+#root { min-height: 100vh; }
+.site-shell { max-width: 1200px; min-height: 100vh; margin: 0 auto; padding: 28px 32px 20px; display: flex; flex-direction: column; }
+.site-header { display: flex; align-items: center; gap: 12px; padding-bottom: 28px; }
+.brand-mark { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 13px; background: #184e3b; color: white; font-size: 13px; font-weight: 800; letter-spacing: -.04em; }
+.brand-name { margin: 0; font-size: 15px; font-weight: 750; line-height: 1.3; }
+.brand-caption { margin: 1px 0 0; color: #7d897f; font-size: 12px; }
+.phase-badge { margin-left: auto; border: 1px solid #dce7dc; background: #eef5ea; color: #42624b; padding: 8px 12px; border-radius: 999px; font-size: 12px; font-weight: 650; }
+.hero-panel { min-height: 360px; position: relative; overflow: hidden; display: flex; align-items: center; background: #174b39; border-radius: 26px; padding: 54px 64px; color: white; }
+.hero-panel > div:first-child { position: relative; z-index: 1; max-width: 570px; }
+.eyebrow { margin: 0 0 20px; color: #bde4b4; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+h1 { margin: 0; font-size: clamp(36px, 5vw, 59px); line-height: 1.08; letter-spacing: -.055em; font-weight: 750; }
+.hero-copy { max-width: 450px; margin: 22px 0 0; color: #d1e2d4; font-size: 16px; line-height: 1.7; }
+.hero-art { position: absolute; right: -40px; top: 0; width: 47%; height: 100%; }
+.art-circle { position: absolute; border: 1px solid #ffffff22; border-radius: 50%; }
+.art-circle-one { width: 500px; height: 500px; top: -140px; left: 20px; }
+.art-circle-two { width: 320px; height: 320px; top: -50px; left: 105px; }
+.art-table { position: absolute; top: 93px; left: 205px; width: 120px; height: 120px; border-radius: 30px; transform: rotate(-15deg); background: #e6b97a; box-shadow: 0 22px 45px #0a332949; display: grid; place-items: center; }
+.art-table span { transform: rotate(15deg); color: #6a4d29; font-size: 19px; font-weight: 800; }
+.art-table-small { top: 225px; left: 335px; width: 80px; height: 80px; border-radius: 50%; background: #9ec695; }
+.art-table-small span { color: #315a37; font-size: 15px; }
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px; }
+.panel { background: white; border: 1px solid #e9eee7; border-radius: 20px; padding: 30px; box-shadow: 0 12px 32px #17372108; }
+.section-label { margin: 0 0 15px; color: #6b9276; font-size: 11px; font-weight: 800; letter-spacing: .14em; }
+h2 { margin: 0; font-size: 24px; line-height: 1.25; letter-spacing: -.035em; }
+.panel-copy { margin: 10px 0 24px; color: #7b877e; line-height: 1.6; font-size: 14px; }
+.status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 15px 16px; border-radius: 11px; background: #f1f5f0; color: #41654b; font-size: 14px; font-weight: 650; }
+.status-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #91a397; }
+.status-online .status-dot { background: #36a26b; box-shadow: 0 0 0 4px #d9efdf; }
+.status-offline { background: #fff3f0; color: #a34d3d; }
+.status-offline .status-dot { background: #db755e; }
+.help-text { margin: -7px 0 16px; font-size: 13px; color: #a34d3d; }
+.feature-list { margin: 0; padding: 0; list-style: none; }
+.feature-list li { display: flex; align-items: center; gap: 16px; padding: 10px 0; border-top: 1px solid #edf0eb; color: #405047; font-size: 14px; }
+.feature-list span { color: #88aa90; font-size: 12px; font-weight: 800; }
+footer { margin-top: auto; padding: 28px 0 3px; color: #93a096; text-align: center; font-size: 12px; }
+@media (max-width: 800px) { .hero-panel { padding: 42px 34px; } .hero-art { opacity: .22; width: 65%; } .content-grid { grid-template-columns: 1fr; } }
+@media (max-width: 500px) { .site-shell { padding: 16px; } .site-header { padding-bottom: 18px; } .brand-caption { display: none; } .phase-badge { font-size: 10px; padding: 6px 8px; } .hero-panel { min-height: 330px; padding: 38px 27px; } .hero-copy { font-size: 14px; } .panel { padding: 24px; } }
