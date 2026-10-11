@@ -224,7 +224,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
     }
   }
 
-  function beginAreaDrag(event: PointerEvent<HTMLButtonElement>, area: FloorArea, mode: 'move' | 'resize') {
+  function beginAreaDrag(event: PointerEvent<HTMLElement>, area: FloorArea, mode: 'move' | 'resize') {
     if (busy) return
     setSelectedAreaId(area.id)
     resetTableForm(area.id)
@@ -234,7 +234,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
-  function moveAreaDrag(event: PointerEvent<HTMLButtonElement>) {
+  function moveAreaDrag(event: PointerEvent<HTMLElement>) {
     if (!areaDrag.current || !boardRef.current) return
     const { area, mode, startX, startY } = areaDrag.current
     const initial = areaBounds(area)
@@ -331,7 +331,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
       <section className="panel area-panel" aria-label="Floor areas">
         <div className="area-tabs"><strong>Design areas</strong><button type="button" className="area-add" onClick={() => openAreaForm()}>+ Add area</button></div>
         <div className="area-summary">{areas.map((area) => <button key={area.id} type="button" className={selectedAreaId === area.id ? 'active' : ''} onClick={() => { setSelectedAreaId(area.id); resetTableForm(area.id) }}>{area.name} <small>{tables.filter((table) => table.floor_area_id === area.id).length} tables</small></button>)}</div>
-        {selectedArea && !showAreaForm && <div className="area-toolbar"><span>{selectedArea.name} selected · drag its label or corner on the plan</span><div><button type="button" onClick={() => openAreaForm(selectedArea)}>Edit size & position</button><button type="button" disabled={areas.length === 1 || busy} onClick={() => void removeArea(selectedArea)}>Delete area</button></div></div>}
+        {selectedArea && !showAreaForm && <div className="area-toolbar"><span>{selectedArea.name} selected · drag open space to move, or the corner to resize</span><div><button type="button" onClick={() => openAreaForm(selectedArea)}>Edit size & position</button><button type="button" disabled={areas.length === 1 || busy} onClick={() => void removeArea(selectedArea)}>Delete area</button></div></div>}
         {showAreaForm && (
           <form className="area-form" onSubmit={(event) => void saveArea(event)}>
             <label className="field">Area name<input value={areaName} onChange={(event) => setAreaName(event.target.value)} required maxLength={255} placeholder="e.g. Terrace" /></label>
@@ -359,8 +359,20 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
             {areas.map((area) => {
               const bounds = draftBounds?.id === area.id ? draftBounds : areaBounds(area)
               return (
-                <div key={area.id} className={`floor-zone${selectedAreaId === area.id ? ' active' : ''}`} style={{ left: `${bounds.x}%`, top: `${bounds.y}%`, width: `${bounds.width}%`, height: `${bounds.height}%` }}>
-                  <button type="button" className="zone-heading" onPointerDown={(event) => beginAreaDrag(event, area, 'move')} onPointerMove={moveAreaDrag} onPointerUp={() => void endAreaDrag()} onPointerCancel={() => { areaDrag.current = null; draftBoundsRef.current = null; setDraftBounds(null) }} onClick={() => { setSelectedAreaId(area.id); resetTableForm(area.id) }} aria-label={`Move ${area.name} area`}>{area.name}</button>
+                <div
+                  key={area.id}
+                  className={`floor-zone${selectedAreaId === area.id ? ' active' : ''}`}
+                  style={{ left: `${bounds.x}%`, top: `${bounds.y}%`, width: `${bounds.width}%`, height: `${bounds.height}%` }}
+                  onPointerDown={(event) => {
+                    if (event.target instanceof HTMLElement && event.target.closest('.floor-table, .zone-resize')) return
+                    beginAreaDrag(event, area, 'move')
+                  }}
+                  onPointerMove={moveAreaDrag}
+                  onPointerUp={() => void endAreaDrag()}
+                  onPointerCancel={() => { areaDrag.current = null; draftBoundsRef.current = null; setDraftBounds(null) }}
+                  onClick={() => setSelectedAreaId(area.id)}
+                >
+                  <span className="zone-heading">{area.name}</span>
                   {tables.filter((table) => table.floor_area_id === area.id).map((table) => {
                     const x = draftPosition?.id === table.id ? draftPosition.x : Number(table.position_x)
                     const y = draftPosition?.id === table.id ? draftPosition.y : Number(table.position_y)
@@ -385,7 +397,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
                       </button>
                     )
                   })}
-                  <button type="button" className="zone-resize" onPointerDown={(event) => beginAreaDrag(event, area, 'resize')} onPointerMove={moveAreaDrag} onPointerUp={() => void endAreaDrag()} onPointerCancel={() => { areaDrag.current = null; draftBoundsRef.current = null; setDraftBounds(null) }} aria-label={`Resize ${area.name} area`} />
+                  <button type="button" className="zone-resize" onPointerDown={(event) => { event.stopPropagation(); beginAreaDrag(event, area, 'resize') }} aria-label={`Resize ${area.name} area`} />
                 </div>
               )
             })}
