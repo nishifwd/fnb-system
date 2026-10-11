@@ -18,6 +18,10 @@ class FloorAreaResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'sort_order' => $this->sort_order,
+            'position_x' => $this->position_x,
+            'position_y' => $this->position_y,
+            'width' => $this->width,
+            'height' => $this->height,
         ];
     }
 }

@@ -38,11 +38,25 @@ export type FloorArea = {
   id: number
   name: string
   sort_order: number
+  position_x: string
+  position_y: string
+  width: string
+  height: string
+}
+
+export type FloorLayout = {
+  entrance_side: 'top' | 'right' | 'bottom' | 'left'
+  entrance_offset: string
 }
 
 export type BusinessInput = Omit<BusinessProfile, 'id'>
 export type CategoryInput = Omit<MenuCategory, 'id'>
-export type AreaInput = Omit<FloorArea, 'id'>
+export type AreaInput = Omit<FloorArea, 'id' | 'position_x' | 'position_y' | 'width' | 'height'> & {
+  position_x: number
+  position_y: number
+  width: number
+  height: number
+}
 export type ItemInput = Omit<MenuItem, 'id' | 'price'> & { price: number }
 export type TableInput = Omit<DiningTable, 'id' | 'position_x' | 'position_y'> & {
   position_x: number
@@ -100,6 +114,8 @@ export const api = {
   saveArea: (data: AreaInput, id?: number) =>
     request<FloorArea>(id ? `/areas/${id}` : '/areas', id ? 'PUT' : 'POST', data),
   deleteArea: (id: number) => request<void>(`/areas/${id}`, 'DELETE'),
+  layout: () => request<FloorLayout>('/layout'),
+  saveLayout: (data: FloorLayout) => request<FloorLayout>('/layout', 'PUT', data),
   tables: () => request<DiningTable[]>('/tables'),
   saveTable: (data: TableInput, id?: number) =>
     request<DiningTable>(id ? `/tables/${id}` : '/tables', id ? 'PUT' : 'POST', data),

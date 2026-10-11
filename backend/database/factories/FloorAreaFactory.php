@@ -20,6 +20,10 @@ class FloorAreaFactory extends Factory
         return [
             'name' => fake()->unique()->words(2, true),
             'sort_order' => 0,
+            'position_x' => 0,
+            'position_y' => 0,
+            'width' => 50,
+            'height' => 50,
         ];
     }
 }

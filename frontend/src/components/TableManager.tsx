@@ -1,14 +1,20 @@
 import { useRef, useState, type FormEvent, type PointerEvent } from 'react'
 import { Button } from '@heroui/react'
-import { api, type DiningTable, type FloorArea, type TableInput } from '../api'
+import { api, type DiningTable, type FloorArea, type FloorLayout, type TableInput } from '../api'
 
 type Props = {
   areas: FloorArea[]
+  layout: FloorLayout
   tables: DiningTable[]
   onChanged: () => Promise<void>
 }
 
 type Position = { id: number, x: number, y: number }
+type Bounds = { id: number, x: number, y: number, width: number, height: number }
+
+function areaBounds(area: FloorArea): Bounds {
+  return { id: area.id, x: Number(area.position_x), y: Number(area.position_y), width: Number(area.width), height: Number(area.height) }
+}
 
 function nextRotation(rotation: DiningTable['rotation']): DiningTable['rotation'] {
   return ((rotation + 90) % 360) as DiningTable['rotation']
@@ -33,16 +39,25 @@ function tableInput(table: DiningTable): TableInput {
   }
 }
 
-export function TableManager({ areas, tables, onChanged }: Props) {
+export function TableManager({ areas, layout, tables, onChanged }: Props) {
   const boardRef = useRef<HTMLDivElement>(null)
   const draggingId = useRef<number | null>(null)
+  const areaDrag = useRef<{ area: FloorArea, mode: 'move' | 'resize', startX: number, startY: number } | null>(null)
+  const draftBoundsRef = useRef<Bounds | null>(null)
   const draftPositionRef = useRef<Position | null>(null)
   const [draftPosition, setDraftPosition] = useState<Position | null>(null)
+  const [draftBounds, setDraftBounds] = useState<Bounds | null>(null)
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(areas[0]?.id ?? null)
   const [showAreaForm, setShowAreaForm] = useState(false)
   const [areaEditingId, setAreaEditingId] = useState<number | null>(null)
   const [areaName, setAreaName] = useState('')
   const [areaOrder, setAreaOrder] = useState('0')
+  const [areaX, setAreaX] = useState('65')
+  const [areaY, setAreaY] = useState('0')
+  const [areaWidth, setAreaWidth] = useState('35')
+  const [areaHeight, setAreaHeight] = useState('100')
+  const [entranceSide, setEntranceSide] = useState<FloorLayout['entrance_side']>(layout.entrance_side)
+  const [entranceOffset, setEntranceOffset] = useState(layout.entrance_offset)
   const [tableId, setTableId] = useState<number | null>(null)
   const [tableAreaId, setTableAreaId] = useState(String(areas[0]?.id ?? ''))
   const [label, setLabel] = useState('')
@@ -56,7 +71,7 @@ export function TableManager({ areas, tables, onChanged }: Props) {
   const [message, setMessage] = useState('')
 
   const selectedArea = areas.find((area) => area.id === selectedAreaId)
-  const visibleTables = tables.filter((table) => table.floor_area_id === selectedAreaId)
+  const visibleTables = tables
 
   function resetTableForm(areaId = selectedAreaId) {
     setTableId(null)
@@ -70,6 +85,7 @@ export function TableManager({ areas, tables, onChanged }: Props) {
   }
 
   function editTable(table: DiningTable) {
+    setSelectedAreaId(table.floor_area_id)
     setTableId(table.id)
     setTableAreaId(String(table.floor_area_id))
     setLabel(table.label)
@@ -86,6 +102,10 @@ export function TableManager({ areas, tables, onChanged }: Props) {
     setAreaEditingId(area?.id ?? null)
     setAreaName(area?.name ?? '')
     setAreaOrder(String(area?.sort_order ?? areas.length))
+    setAreaX(area?.position_x ?? '65')
+    setAreaY(area?.position_y ?? '0')
+    setAreaWidth(area?.width ?? '35')
+    setAreaHeight(area?.height ?? '100')
     setShowAreaForm(true)
     setError('')
     setMessage('')
@@ -97,7 +117,11 @@ export function TableManager({ areas, tables, onChanged }: Props) {
     setError('')
     setMessage('')
     try {
-      const saved = await api.saveArea({ name: areaName.trim(), sort_order: Number(areaOrder) }, areaEditingId ?? undefined)
+      const saved = await api.saveArea({
+        name: areaName.trim(), sort_order: Number(areaOrder),
+        position_x: Number(areaX), position_y: Number(areaY),
+        width: Number(areaWidth), height: Number(areaHeight),
+      }, areaEditingId ?? undefined)
       await onChanged()
       setSelectedAreaId(saved.id)
       resetTableForm(saved.id)
@@ -185,6 +209,71 @@ export function TableManager({ areas, tables, onChanged }: Props) {
     }
   }
 
+  async function saveEntrance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await api.saveLayout({ entrance_side: entranceSide, entrance_offset: entranceOffset })
+      await onChanged()
+      setMessage('Entrance saved.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not save entrance.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function beginAreaDrag(event: PointerEvent<HTMLButtonElement>, area: FloorArea, mode: 'move' | 'resize') {
+    if (busy) return
+    setSelectedAreaId(area.id)
+    resetTableForm(area.id)
+    areaDrag.current = { area, mode, startX: event.clientX, startY: event.clientY }
+    draftBoundsRef.current = areaBounds(area)
+    setDraftBounds(draftBoundsRef.current)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function moveAreaDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!areaDrag.current || !boardRef.current) return
+    const { area, mode, startX, startY } = areaDrag.current
+    const initial = areaBounds(area)
+    const board = boardRef.current.getBoundingClientRect()
+    const dx = Math.round(((event.clientX - startX) / board.width) * 100)
+    const dy = Math.round(((event.clientY - startY) / board.height) * 100)
+    if (mode === 'move') {
+      draftBoundsRef.current = { ...initial, x: Math.max(0, Math.min(100 - initial.width, initial.x + dx)), y: Math.max(0, Math.min(100 - initial.height, initial.y + dy)) }
+    } else {
+      draftBoundsRef.current = { ...initial, width: Math.max(10, Math.min(100 - initial.x, initial.width + dx)), height: Math.max(10, Math.min(100 - initial.y, initial.height + dy)) }
+    }
+    setDraftBounds(draftBoundsRef.current)
+  }
+
+  async function endAreaDrag() {
+    const nextBounds = draftBoundsRef.current
+    if (!areaDrag.current || !nextBounds) return
+    const { area } = areaDrag.current
+    areaDrag.current = null
+    if (nextBounds.x === Number(area.position_x) && nextBounds.y === Number(area.position_y) && nextBounds.width === Number(area.width) && nextBounds.height === Number(area.height)) {
+      setDraftBounds(null)
+      draftBoundsRef.current = null
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      await api.saveArea({ name: area.name, sort_order: area.sort_order, position_x: nextBounds.x, position_y: nextBounds.y, width: nextBounds.width, height: nextBounds.height }, area.id)
+      await onChanged()
+      setMessage(`${area.name} layout saved.`)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not move area.')
+    } finally {
+      setDraftBounds(null)
+      draftBoundsRef.current = null
+      setBusy(false)
+    }
+  }
+
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>, table: DiningTable) {
     if (busy) return
     editTable(table)
@@ -195,10 +284,14 @@ export function TableManager({ areas, tables, onChanged }: Props) {
 
   function handlePointerMove(event: PointerEvent<HTMLButtonElement>, table: DiningTable) {
     if (draggingId.current !== table.id || !boardRef.current) return
-    const bounds = boardRef.current.getBoundingClientRect()
+    const zone = event.currentTarget.parentElement
+    if (!zone) return
+    const bounds = zone.getBoundingClientRect()
     const footprint = tableFootprint(table.shape, table.rotation)
-    const x = Math.max(0, Math.min(90, Math.round(((event.clientX - bounds.left - footprint.width / 2) / bounds.width) * 100)))
-    const y = Math.max(0, Math.min(90, Math.round(((event.clientY - bounds.top - footprint.height / 2) / bounds.height) * 100)))
+    const maxX = Math.min(90, Math.max(0, (1 - footprint.width / bounds.width) * 100))
+    const maxY = Math.min(90, Math.max(0, (1 - footprint.height / bounds.height) * 100))
+    const x = Math.max(0, Math.min(maxX, Math.round(((event.clientX - bounds.left - footprint.width / 2) / bounds.width) * 100)))
+    const y = Math.max(0, Math.min(maxY, Math.round(((event.clientY - bounds.top - footprint.height / 2) / bounds.height) * 100)))
     const nextPosition = { id: table.id, x, y }
     draftPositionRef.current = nextPosition
     setDraftPosition(nextPosition)
@@ -230,61 +323,73 @@ export function TableManager({ areas, tables, onChanged }: Props) {
     <div className="section-stack">
       <div className="section-heading">
         <div><p className="eyebrow">YOUR FLOOR</p><h1>Tables & layout</h1></div>
-        <p>Arrange separate areas and rotate tables to fit your space.</p>
+        <p>Design one floor plan with Indoor, Outdoor, and any other areas you need.</p>
       </div>
       {error && <div className="notice error-message" role="alert">{error}</div>}
       {message && <div className="notice success-message" role="status">{message}</div>}
 
       <section className="panel area-panel" aria-label="Floor areas">
-        <div className="area-tabs">
-          {areas.map((area) => (
-            <button key={area.id} type="button" className={`area-tab${selectedAreaId === area.id ? ' active' : ''}`} aria-pressed={selectedAreaId === area.id} onClick={() => { setSelectedAreaId(area.id); resetTableForm(area.id) }}>
-              {area.name}<span>{tables.filter((table) => table.floor_area_id === area.id).length}</span>
-            </button>
-          ))}
-          <button type="button" className="area-add" onClick={() => openAreaForm()}>+ Add area</button>
-        </div>
-        {selectedArea && !showAreaForm && <div className="area-toolbar"><span>{selectedArea.name} floor plan</span><div><button type="button" onClick={() => openAreaForm(selectedArea)}>Rename</button><button type="button" disabled={areas.length === 1 || busy} onClick={() => void removeArea(selectedArea)}>Delete area</button></div></div>}
+        <div className="area-tabs"><strong>Design areas</strong><button type="button" className="area-add" onClick={() => openAreaForm()}>+ Add area</button></div>
+        <div className="area-summary">{areas.map((area) => <button key={area.id} type="button" className={selectedAreaId === area.id ? 'active' : ''} onClick={() => { setSelectedAreaId(area.id); resetTableForm(area.id) }}>{area.name} <small>{tables.filter((table) => table.floor_area_id === area.id).length} tables</small></button>)}</div>
+        {selectedArea && !showAreaForm && <div className="area-toolbar"><span>{selectedArea.name} selected · drag its label or corner on the plan</span><div><button type="button" onClick={() => openAreaForm(selectedArea)}>Edit size & position</button><button type="button" disabled={areas.length === 1 || busy} onClick={() => void removeArea(selectedArea)}>Delete area</button></div></div>}
         {showAreaForm && (
           <form className="area-form" onSubmit={(event) => void saveArea(event)}>
             <label className="field">Area name<input value={areaName} onChange={(event) => setAreaName(event.target.value)} required maxLength={255} placeholder="e.g. Terrace" /></label>
             <label className="field">Display order<input type="number" min="0" value={areaOrder} onChange={(event) => setAreaOrder(event.target.value)} required /></label>
+            <label className="field">Left (%)<input type="number" min="0" max="90" value={areaX} onChange={(event) => setAreaX(event.target.value)} required /></label>
+            <label className="field">Top (%)<input type="number" min="0" max="90" value={areaY} onChange={(event) => setAreaY(event.target.value)} required /></label>
+            <label className="field">Width (%)<input type="number" min="10" max="100" value={areaWidth} onChange={(event) => setAreaWidth(event.target.value)} required /></label>
+            <label className="field">Height (%)<input type="number" min="10" max="100" value={areaHeight} onChange={(event) => setAreaHeight(event.target.value)} required /></label>
             <Button type="submit" isDisabled={busy}>{areaEditingId ? 'Save area' : 'Add area'}</Button>
             <button type="button" className="text-button" onClick={() => setShowAreaForm(false)}>Cancel</button>
           </form>
         )}
+        <form className="entrance-form" onSubmit={(event) => void saveEntrance(event)}>
+          <span>Entrance</span>
+          <label className="field">Side<select value={entranceSide} onChange={(event) => setEntranceSide(event.target.value as FloorLayout['entrance_side'])}><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
+          <label className="field">Position (%)<input type="number" min="10" max="90" value={entranceOffset} onChange={(event) => setEntranceOffset(event.target.value)} required /></label>
+          <Button type="submit" isDisabled={busy}>Save entrance</Button>
+        </form>
       </section>
 
       <div className="layout-grid">
         <section className="panel layout-panel">
-          <div className="panel-heading"><h2>{selectedArea?.name ?? 'Floor'} plan <span className="count">{visibleTables.length} tables</span></h2><small>Drag to arrange</small></div>
-          <div className="floor-board" ref={boardRef} aria-label={`${selectedArea?.name ?? 'Floor'} table layout`}>
-            <span className="entrance-label">ENTRANCE</span>
-            {visibleTables.length === 0 && <span className="board-empty">No tables in this area yet.</span>}
-            {visibleTables.map((table) => {
-              const x = draftPosition?.id === table.id ? draftPosition.x : Number(table.position_x)
-              const y = draftPosition?.id === table.id ? draftPosition.y : Number(table.position_y)
-              const displayShape = tableId === table.id ? shape : table.shape
-              const displayRotation = tableId === table.id ? rotation : table.rotation
-              const footprint = tableFootprint(displayShape, displayRotation)
+          <div className="panel-heading"><h2>Whole floor <span className="count">{tables.length} tables</span></h2><small>Drag areas and tables to arrange</small></div>
+          <div className="floor-board" ref={boardRef} aria-label="Combined restaurant floor plan">
+            {areas.map((area) => {
+              const bounds = draftBounds?.id === area.id ? draftBounds : areaBounds(area)
               return (
-                <button
-                  type="button"
-                  key={table.id}
-                  className={`floor-table shape-${displayShape} rotation-${displayRotation}${tableId === table.id ? ' selected' : ''}`}
-                  style={{ left: `min(${x}%, calc(100% - ${footprint.width}px))`, top: `min(${y}%, calc(100% - ${footprint.height}px))` }}
-                  onClick={(event) => { if (event.detail === 0) editTable(table) }}
-                  onPointerDown={(event) => handlePointerDown(event, table)}
-                  onPointerMove={(event) => handlePointerMove(event, table)}
-                  onPointerUp={() => void handlePointerUp(table)}
-                  onPointerCancel={() => { draggingId.current = null; draftPositionRef.current = null; setDraftPosition(null) }}
-                  aria-label={`Table ${table.label}, ${table.capacity} seats, rotated ${displayRotation} degrees. Select to edit or drag to move.`}
-                >
-                  <span className="orientation-marker" aria-hidden="true" />
-                  <strong>{table.label}</strong><small>{table.capacity} seats</small>
-                </button>
+                <div key={area.id} className={`floor-zone${selectedAreaId === area.id ? ' active' : ''}`} style={{ left: `${bounds.x}%`, top: `${bounds.y}%`, width: `${bounds.width}%`, height: `${bounds.height}%` }}>
+                  <button type="button" className="zone-heading" onPointerDown={(event) => beginAreaDrag(event, area, 'move')} onPointerMove={moveAreaDrag} onPointerUp={() => void endAreaDrag()} onPointerCancel={() => { areaDrag.current = null; draftBoundsRef.current = null; setDraftBounds(null) }} onClick={() => { setSelectedAreaId(area.id); resetTableForm(area.id) }} aria-label={`Move ${area.name} area`}>{area.name}</button>
+                  {tables.filter((table) => table.floor_area_id === area.id).map((table) => {
+                    const x = draftPosition?.id === table.id ? draftPosition.x : Number(table.position_x)
+                    const y = draftPosition?.id === table.id ? draftPosition.y : Number(table.position_y)
+                    const displayShape = tableId === table.id ? shape : table.shape
+                    const displayRotation = tableId === table.id ? rotation : table.rotation
+                    const footprint = tableFootprint(displayShape, displayRotation)
+                    return (
+                      <button
+                        type="button"
+                        key={table.id}
+                        className={`floor-table shape-${displayShape} rotation-${displayRotation}${tableId === table.id ? ' selected' : ''}`}
+                        style={{ left: `min(${x}%, calc(100% - ${footprint.width}px))`, top: `min(${y}%, calc(100% - ${footprint.height}px))` }}
+                        onClick={(event) => { if (event.detail === 0) editTable(table) }}
+                        onPointerDown={(event) => { setSelectedAreaId(area.id); handlePointerDown(event, table) }}
+                        onPointerMove={(event) => handlePointerMove(event, table)}
+                        onPointerUp={() => void handlePointerUp(table)}
+                        onPointerCancel={() => { draggingId.current = null; draftPositionRef.current = null; setDraftPosition(null) }}
+                        aria-label={`Table ${table.label}, ${table.capacity} seats, rotated ${displayRotation} degrees. Select to edit or drag to move.`}
+                      >
+                        <span className="orientation-marker" aria-hidden="true" />
+                        <strong>{table.label}</strong><small>{table.capacity} seats</small>
+                      </button>
+                    )
+                  })}
+                  <button type="button" className="zone-resize" onPointerDown={(event) => beginAreaDrag(event, area, 'resize')} onPointerMove={moveAreaDrag} onPointerUp={() => void endAreaDrag()} onPointerCancel={() => { areaDrag.current = null; draftBoundsRef.current = null; setDraftBounds(null) }} aria-label={`Resize ${area.name} area`} />
+                </div>
               )
             })}
+            <span className={`entrance-label entrance-${entranceSide}`} style={entranceSide === 'top' || entranceSide === 'bottom' ? { left: `${entranceOffset}%` } : { top: `${entranceOffset}%` }}>ENTRANCE</span>
           </div>
         </section>
         <section className="panel table-editor">
@@ -305,7 +410,7 @@ export function TableManager({ areas, tables, onChanged }: Props) {
           <div className="list-stack">
             {visibleTables.map((table) => (
               <div className="list-row" key={table.id}>
-                <div><strong>{table.label}</strong><small>{table.capacity} seats · {table.shape} · {table.rotation}°</small></div>
+                <div><strong>{table.label}</strong><small>{areas.find((area) => area.id === table.floor_area_id)?.name ?? 'Area'} · {table.capacity} seats · {table.shape} · {table.rotation}°</small></div>
                 <div className="row-actions"><button type="button" onClick={() => editTable(table)} disabled={busy}>Edit</button><button type="button" onClick={() => void rotateSavedTable(table)} disabled={busy}>Rotate</button><button type="button" onClick={() => void removeTable(table)} disabled={busy}>Delete</button></div>
               </div>
             ))}

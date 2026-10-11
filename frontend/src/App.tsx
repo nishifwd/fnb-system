@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@heroui/react'
-import { api, type BusinessProfile, type DiningTable, type FloorArea, type MenuCategory, type MenuItem } from './api'
+import { api, type BusinessProfile, type DiningTable, type FloorArea, type FloorLayout, type MenuCategory, type MenuItem } from './api'
 import { BusinessSettings } from './components/BusinessSettings'
 import { MenuManager } from './components/MenuManager'
 import { TableManager } from './components/TableManager'
@@ -12,6 +12,7 @@ type Snapshot = {
   categories: MenuCategory[]
   items: MenuItem[]
   areas: FloorArea[]
+  layout: FloorLayout
   tables: DiningTable[]
 }
 
@@ -23,10 +24,10 @@ const navigation: { id: Section, label: string, symbol: string }[] = [
 ]
 
 async function fetchSnapshot(): Promise<Snapshot> {
-  const [, business, categories, items, areas, tables] = await Promise.all([
-    api.health(), api.business(), api.categories(), api.items(), api.areas(), api.tables(),
+  const [, business, categories, items, areas, layout, tables] = await Promise.all([
+    api.health(), api.business(), api.categories(), api.items(), api.areas(), api.layout(), api.tables(),
   ])
-  return { business, categories, items, areas, tables }
+  return { business, categories, items, areas, layout, tables }
 }
 
 function App() {
@@ -109,7 +110,7 @@ function App() {
           )}
           {!loading && snapshot && section === 'business' && <BusinessSettings profile={snapshot.business} onChanged={refresh} />}
           {!loading && snapshot && section === 'menu' && <MenuManager categories={snapshot.categories} items={snapshot.items} currency={snapshot.business?.currency ?? 'MYR'} onChanged={refresh} />}
-          {!loading && snapshot && section === 'tables' && <TableManager areas={snapshot.areas} tables={snapshot.tables} onChanged={refresh} />}
+          {!loading && snapshot && section === 'tables' && <TableManager areas={snapshot.areas} layout={snapshot.layout} tables={snapshot.tables} onChanged={refresh} />}
         </main>
       </div>
     </div>

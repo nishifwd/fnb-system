@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class FloorAreaController extends Controller
 {
@@ -21,7 +22,16 @@ class FloorAreaController extends Controller
 
     public function store(Request $request): FloorAreaResource
     {
-        return new FloorAreaResource(FloorArea::query()->create($this->validatedData($request)));
+        $data = $this->validatedData($request);
+        $data += ['position_x' => 65, 'position_y' => 0, 'width' => 35, 'height' => 100];
+        if (FloorArea::query()->count() === 1) {
+            $existing = FloorArea::query()->first();
+            if ((float) $existing->width === 100.0 && (float) ($data['position_x'] ?? 65) === 65.0 && (float) ($data['width'] ?? 35) === 35.0) {
+                $existing->update(['width' => 65]);
+            }
+        }
+
+        return new FloorAreaResource(FloorArea::query()->create($data));
     }
 
     public function show(FloorArea $floorArea): FloorAreaResource
@@ -45,12 +55,26 @@ class FloorAreaController extends Controller
         return response()->noContent();
     }
 
-    /** @return array{name: string, sort_order: int} */
+    /** @return array<string, mixed> */
     private function validatedData(Request $request, ?FloorArea $area = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('floor_areas', 'name')->ignore($area?->id)],
             'sort_order' => ['required', 'integer', 'min:0'],
+            'position_x' => ['sometimes', 'numeric', 'between:0,90'],
+            'position_y' => ['sometimes', 'numeric', 'between:0,90'],
+            'width' => ['sometimes', 'numeric', 'between:10,100'],
+            'height' => ['sometimes', 'numeric', 'between:10,100'],
         ]);
+
+        $x = (float) ($data['position_x'] ?? $area?->position_x ?? 65);
+        $y = (float) ($data['position_y'] ?? $area?->position_y ?? 0);
+        $width = (float) ($data['width'] ?? $area?->width ?? 35);
+        $height = (float) ($data['height'] ?? $area?->height ?? 100);
+        if ($x + $width > 100 || $y + $height > 100) {
+            throw ValidationException::withMessages(['position_x' => 'The area must fit inside the floor plan.']);
+        }
+
+        return $data;
     }
 }

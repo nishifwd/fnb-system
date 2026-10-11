@@ -12,7 +12,12 @@ class FloorArea extends Model
     /** @use HasFactory<FloorAreaFactory> */
     use HasFactory;
 
-    protected $fillable = ['name', 'sort_order'];
+    protected $fillable = ['name', 'sort_order', 'position_x', 'position_y', 'width', 'height'];
+
+    protected function casts(): array
+    {
+        return ['position_x' => 'decimal:2', 'position_y' => 'decimal:2', 'width' => 'decimal:2', 'height' => 'decimal:2'];
+    }
 
     public function tables(): HasMany
     {

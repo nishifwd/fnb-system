@@ -76,6 +76,7 @@ class ManagementApiTest extends TestCase
         $outdoor = $this->postJson('/api/v1/areas', [
             'name' => 'Outdoor', 'sort_order' => 1,
         ])->assertCreated()->json('data');
+        $this->assertDatabaseHas('floor_areas', ['id' => $indoor['id'], 'width' => 65]);
 
         $table = $this->postJson('/api/v1/tables', [
             'floor_area_id' => $outdoor['id'],
@@ -132,6 +133,34 @@ class ManagementApiTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('name');
 
         $this->deleteJson('/api/v1/areas/'.$area['id'])->assertNoContent();
+    }
+
+    public function test_shared_floor_area_bounds_and_entrance_can_be_saved(): void
+    {
+        $indoor = FloorArea::query()->where('name', 'Indoor')->firstOrFail();
+        $outdoor = $this->postJson('/api/v1/areas', [
+            'name' => 'Outdoor', 'sort_order' => 1,
+            'position_x' => 0, 'position_y' => 70, 'width' => 100, 'height' => 30,
+        ])->assertCreated()->assertJsonPath('data.height', '30.00')->json('data');
+
+        $this->putJson('/api/v1/areas/'.$indoor->id, [
+            'name' => 'Indoor', 'sort_order' => 0,
+            'position_x' => 0, 'position_y' => 0, 'width' => 100, 'height' => 70,
+        ])->assertOk()->assertJsonPath('data.width', '100.00');
+
+        $this->putJson('/api/v1/areas/'.$outdoor['id'], [
+            'name' => 'Outdoor', 'sort_order' => 1,
+            'position_x' => 80, 'position_y' => 0, 'width' => 30, 'height' => 100,
+        ])->assertUnprocessable()->assertJsonValidationErrors('position_x');
+
+        $this->getJson('/api/v1/layout')->assertOk()->assertJsonPath('data.entrance_side', 'bottom');
+        $this->putJson('/api/v1/layout', [
+            'entrance_side' => 'top', 'entrance_offset' => 25,
+        ])->assertOk()->assertJsonPath('data.entrance_side', 'top');
+        $this->getJson('/api/v1/layout')->assertOk()->assertJsonPath('data.entrance_offset', '25.00');
+        $this->putJson('/api/v1/layout', [
+            'entrance_side' => 'diagonal', 'entrance_offset' => 120,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['entrance_side', 'entrance_offset']);
     }
 
     public function test_factory_records_can_be_read_from_the_api(): void
