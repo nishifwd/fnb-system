@@ -6,12 +6,20 @@ use App\Models\DiningTable;
 use App\Models\FloorArea;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ManagementApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_OWNER]));
+    }
 
     public function test_business_profile_can_be_saved_and_read(): void
     {

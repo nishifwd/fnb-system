@@ -1,6 +1,6 @@
 # F&B System
 
-A restaurant and café web app in progress. The current local build lets you set business details, manage menu categories and items, and arrange dining tables. It uses a Laravel API, a React frontend, and SQLite. Staff ordering, customer QR ordering, kitchen tracking, and billing are planned for later phases.
+A restaurant and café web app in progress. The current local build lets an owner sign in, add staff, set business details, manage menu categories and items, and arrange dining tables. It uses a Laravel API, a React frontend, and SQLite. Staff ordering, customer QR ordering, kitchen tracking, and billing are planned for later phases.
 
 ## Requirements
 
@@ -22,6 +22,7 @@ Copy-Item .env.example .env
 php artisan key:generate
 New-Item database/database.sqlite -ItemType File -Force
 php artisan migrate
+php artisan staff:create-owner
 php artisan serve --host=127.0.0.1 --port=8001
 ```
 
@@ -35,7 +36,11 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite (usually [http://localhost:5173](http://localhost:5173)). The page should show **Laravel API connected**. Vite proxies `/api` requests to Laravel on `127.0.0.1:8001`, so keep both terminals running. You can also check [http://127.0.0.1:8001/api/v1/health](http://127.0.0.1:8001/api/v1/health) directly; it returns `{"status":"ok","service":"fnb-system"}`.
+Open the local URL printed by Vite (usually [http://localhost:5173](http://localhost:5173)) and sign in. After signing in, the workspace should show **Laravel connected**. Vite proxies `/api` requests to Laravel on `127.0.0.1:8001`, so keep both terminals running. You can also check [http://127.0.0.1:8001/api/v1/health](http://127.0.0.1:8001/api/v1/health) directly; it returns `{"status":"ok","service":"fnb-system"}`.
+
+`staff:create-owner` asks for a name, email, and password of at least 12 characters. It creates the first owner once and never stores a sample password in Git. If you already ran the Phase 2 setup, run `php artisan migrate` and then `php artisan staff:create-owner` before opening React. Sign in with that owner account. The owner can add managers, waiters, and kitchen staff from **Staff**.
+
+Owners and managers can use the business, menu, and tables screens. Only owners can manage staff. Waiter and kitchen accounts can sign in; their work screens will arrive with ordering and kitchen tracking. The API uses Laravel sessions and CSRF protection for changes. Keep the frontend and backend on the same local origin through the Vite proxy.
 
 Use the sidebar to edit **Business**, **Menu**, and **Tables**. The sidebar stays visible while you scroll. Tables shows one combined floor plan with areas such as Indoor and Outdoor. Drag open space inside an area to move it, drag its corner to resize it, or use **Edit size & position** for exact percentages. Drag the entrance marker around the floor plan edge to change its side and position, or use the entrance controls for exact values. Drag tables inside their area, use the table editor to move a table to another area, or enter exact X/Y positions. Choose a round, square, or rectangular table; rectangles have a visibly longer side. Use **Rotate 90°** or the rotation selector to turn a table, then save it. The table list also has a **Rotate** action that saves immediately. Existing tables stay assigned to Indoor when migrations run. Categories containing items cannot be deleted until those items are removed. The frontend uses Inter and JetBrains Mono, matching Project UMK; these fonts load from Google Fonts when online.
 
@@ -63,7 +68,7 @@ GitHub Actions runs the SQLite migrations, Laravel tests, frontend lint, and fro
 
 ## Current scope
 
-The management API does not have accounts or access control yet. Keep this version for local development; add authentication and authorization before deploying it publicly.
+Staff login and role checks are in place. Password reset, email delivery, and account recovery are not yet implemented; an owner can remove staff and create a replacement account. Review deployment security and session settings before exposing this app publicly.
 
 ## Project layout
 

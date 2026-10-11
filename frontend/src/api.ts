@@ -6,6 +6,17 @@ export type BusinessProfile = {
   currency: string
 }
 
+export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen'
+export type StaffUser = { id: number, name: string, email: string, role: StaffRole }
+export type StaffInput = { name: string, email: string, role: Exclude<StaffRole, 'owner'>, password: string }
+
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) { super(message); this.status = status }
+}
+
+let csrfToken = ''
+
 export type MenuCategory = {
   id: number
   name: string
@@ -64,11 +75,16 @@ export type TableInput = Omit<DiningTable, 'id' | 'position_x' | 'position_y'> &
 }
 
 async function request<T>(path: string, method = 'GET', payload?: unknown): Promise<T> {
+  if (method !== 'GET' && !csrfToken) await api.csrf()
   let response: Response
   try {
     response = await fetch(`/api/v1${path}`, {
       method,
-      headers: payload === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(method === 'GET' ? {} : { 'X-CSRF-TOKEN': csrfToken }),
+      },
       body: payload === undefined ? undefined : JSON.stringify(payload),
     })
   } catch {
@@ -82,9 +98,9 @@ async function request<T>(path: string, method = 'GET', payload?: unknown): Prom
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
     if (typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string') {
-      throw new Error(body.message)
+      throw new ApiError(body.message, response.status)
     }
-    throw new Error(`Request failed (${response.status}).`)
+    throw new ApiError(`Request failed (${response.status}).`, response.status)
   }
   if (typeof body !== 'object' || body === null || !('data' in body)) {
     throw new Error('Laravel returned an unexpected response.')
@@ -93,6 +109,23 @@ async function request<T>(path: string, method = 'GET', payload?: unknown): Prom
 }
 
 export const api = {
+  csrf: async () => {
+    const result = await request<{ token: string }>('/auth/csrf')
+    csrfToken = result.token
+  },
+  me: () => request<StaffUser>('/auth/me'),
+  login: async (email: string, password: string) => {
+    const result = await request<{ user: StaffUser, csrf_token: string }>('/auth/login', 'POST', { email, password })
+    csrfToken = result.csrf_token
+    return result.user
+  },
+  logout: async () => {
+    const result = await request<{ csrf_token: string }>('/auth/logout', 'POST')
+    csrfToken = result.csrf_token
+  },
+  staff: () => request<StaffUser[]>('/staff'),
+  createStaff: (data: StaffInput) => request<StaffUser>('/staff', 'POST', data),
+  deleteStaff: (id: number) => request<void>(`/staff/${id}`, 'DELETE'),
   health: async () => {
     const response = await fetch('/api/v1/health')
     const body: unknown = await response.json()

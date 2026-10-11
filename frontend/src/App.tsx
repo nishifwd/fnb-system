@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@heroui/react'
-import { api, type BusinessProfile, type DiningTable, type FloorArea, type FloorLayout, type MenuCategory, type MenuItem } from './api'
+import { api, ApiError, type BusinessProfile, type DiningTable, type FloorArea, type FloorLayout, type MenuCategory, type MenuItem, type StaffUser } from './api'
 import { BusinessSettings } from './components/BusinessSettings'
 import { MenuManager } from './components/MenuManager'
 import { TableManager } from './components/TableManager'
+import { LoginScreen } from './components/LoginScreen'
+import { StaffManager } from './components/StaffManager'
 import './App.css'
 
-type Section = 'overview' | 'business' | 'menu' | 'tables'
+type Section = 'overview' | 'business' | 'menu' | 'tables' | 'staff'
 type Snapshot = {
   business: BusinessProfile | null
   categories: MenuCategory[]
@@ -21,6 +23,7 @@ const navigation: { id: Section, label: string, symbol: string }[] = [
   { id: 'business', label: 'Business', symbol: '◈' },
   { id: 'menu', label: 'Menu', symbol: '☷' },
   { id: 'tables', label: 'Tables', symbol: '▦' },
+  { id: 'staff', label: 'Staff', symbol: '♙' },
 ]
 
 async function fetchSnapshot(): Promise<Snapshot> {
@@ -31,6 +34,7 @@ async function fetchSnapshot(): Promise<Snapshot> {
 }
 
 function App() {
+  const [user, setUser] = useState<StaffUser | null | undefined>(undefined)
   const [section, setSection] = useState<Section>('overview')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [error, setError] = useState('')
@@ -49,15 +53,43 @@ function App() {
 
   useEffect(() => {
     let active = true
-    void fetchSnapshot().then((next) => {
-      if (active) setSnapshot(next)
+    void Promise.all([api.health(), api.csrf()]).then(() => api.me()).then(async (currentUser) => {
+      if (!active) return
+      setUser(currentUser)
+      if (currentUser.role === 'owner' || currentUser.role === 'manager') {
+        const next = await fetchSnapshot()
+        if (active) setSnapshot(next)
+      }
     }).catch((caught) => {
-      if (active) setError(caught instanceof Error ? caught.message : 'Could not load the workspace.')
+      if (!active) return
+      if (caught instanceof ApiError && caught.status === 401) setUser(null)
+      else { setUser(null); setError(caught instanceof Error ? caught.message : 'Could not load the workspace.') }
     }).finally(() => {
       if (active) setLoading(false)
     })
     return () => { active = false }
   }, [])
+
+  async function handleLogin(currentUser: StaffUser) {
+    setUser(currentUser)
+    setError('')
+    if (currentUser.role === 'owner' || currentUser.role === 'manager') {
+      setLoading(true)
+      try { await refresh() } finally { setLoading(false) }
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await api.logout()
+      setUser(null)
+      setSnapshot(null)
+      setSection('overview')
+      setError('')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not sign out.')
+    }
+  }
 
   async function retry() {
     setLoading(true)
@@ -71,28 +103,34 @@ function App() {
     }
   }
 
+  if (user === undefined) return <div className="login-page"><div className="panel login-card" role="status">Connecting to your workspace…</div></div>
+  if (user === null) return <><LoginScreen onLogin={handleLogin} />{error && <div className="auth-error" role="alert">{error}</div>}</>
+
+  const canManage = user.role === 'owner' || user.role === 'manager'
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand"><div className="brand-mark">F&B</div><div><strong>F&B System</strong><small>Restaurant workspace</small></div></div>
         <div className="nav-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
-          {navigation.map((item) => (
+          {navigation.filter((item) => item.id === 'overview' || (item.id === 'staff' ? user.role === 'owner' : canManage)).map((item) => (
             <button key={item.id} type="button" className={`nav-item${section === item.id ? ' active' : ''}`} onClick={() => setSection(item.id)}>
               <span className="nav-symbol" aria-hidden="true">{item.symbol}</span>{item.label}
             </button>
           ))}
         </nav>
-        <div className="sidebar-foot"><span className="foot-dot" /> Phase 2 · Management</div>
+        <div className="sidebar-foot"><span className="foot-dot" /> {user.name} · {user.role}</div>
       </aside>
 
       <div className="workspace">
-        <header className="topbar"><span>Restaurant management</span><span className={`connection-pill${error ? ' disconnected' : ''}`}><span />{error ? 'Disconnected' : 'Laravel connected'}</span></header>
+        <header className="topbar"><span>Restaurant management</span><div className="topbar-actions"><span className={`connection-pill${error ? ' disconnected' : ''}`}><span />{error ? 'Attention needed' : 'Laravel connected'}</span><button type="button" className="text-button" onClick={() => void handleLogout()}>Sign out</button></div></header>
         <main className="main-content">
           {loading && <div className="panel loading-panel" role="status">Loading your workspace…</div>}
           {!loading && error && !snapshot && (
             <div className="panel loading-panel"><h2>Could not connect to Laravel</h2><p>{error}</p><Button onPress={() => void retry()}>Try again</Button></div>
           )}
+          {!loading && !canManage && <div className="panel role-panel"><p className="eyebrow">SIGNED IN AS {user.role.toUpperCase()}</p><h1>Welcome, {user.name}</h1><p>Your {user.role} workflow will be added with ordering and kitchen tracking. Your account is ready.</p></div>}
           {!loading && snapshot && section === 'overview' && (
             <div className="section-stack">
               <div className="welcome-panel">
@@ -111,6 +149,7 @@ function App() {
           {!loading && snapshot && section === 'business' && <BusinessSettings profile={snapshot.business} onChanged={refresh} />}
           {!loading && snapshot && section === 'menu' && <MenuManager categories={snapshot.categories} items={snapshot.items} currency={snapshot.business?.currency ?? 'MYR'} onChanged={refresh} />}
           {!loading && snapshot && section === 'tables' && <TableManager areas={snapshot.areas} layout={snapshot.layout} tables={snapshot.tables} onChanged={refresh} />}
+          {!loading && user.role === 'owner' && section === 'staff' && <StaffManager />}
         </main>
       </div>
     </div>
