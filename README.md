@@ -1,6 +1,6 @@
 # F&B System
 
-A restaurant and café web app in progress. Phase 1 provides a Laravel API, a React page that checks the API connection, SQLite migrations, and CI. Ordering, floor layout, QR ordering, kitchen workflow, and billing are planned for later phases.
+A restaurant and café web app in progress. The current local build lets you set business details, manage menu categories and items, and arrange dining tables. It uses a Laravel API, a React frontend, and SQLite. Staff ordering, customer QR ordering, kitchen tracking, and billing are planned for later phases.
 
 ## Requirements
 
@@ -37,6 +37,10 @@ npm run dev
 
 Open the local URL printed by Vite (usually [http://localhost:5173](http://localhost:5173)). The page should show **Laravel API connected**. Vite proxies `/api` requests to Laravel on `127.0.0.1:8001`, so keep both terminals running. You can also check [http://127.0.0.1:8001/api/v1/health](http://127.0.0.1:8001/api/v1/health) directly; it returns `{"status":"ok","service":"fnb-system"}`.
 
+Use the sidebar to edit **Business**, **Menu**, and **Tables**. The sidebar stays visible while you scroll. Tables shows one combined floor plan with areas such as Indoor and Outdoor. Drag open space inside an area to move it, drag its corner to resize it, or use **Edit size & position** for exact percentages. Drag the entrance marker around the floor plan edge to change its side and position, or use the entrance controls for exact values. Drag tables inside their area, use the table editor to move a table to another area, or enter exact X/Y positions. Choose a round, square, or rectangular table; rectangles have a visibly longer side. Use **Rotate 90°** or the rotation selector to turn a table, then save it. The table list also has a **Rotate** action that saves immediately. Existing tables stay assigned to Indoor when migrations run. Categories containing items cannot be deleted until those items are removed. The frontend uses Inter and JetBrains Mono, matching Project UMK; these fonts load from Google Fonts when online.
+
+For optional fictional sample data, run `php artisan db:seed` from `backend`. On a fresh database it adds a side by side Indoor and Outdoor layout, including a rotated Outdoor table. Seeding can be run again without duplicating the sample records.
+
 If Herd works in a normal terminal but `php` is unavailable in an older terminal, close and reopen it so the PATH refreshes.
 
 ## Checks
@@ -56,6 +60,10 @@ npm run build
 ```
 
 GitHub Actions runs the SQLite migrations, Laravel tests, frontend lint, and frontend build on pushes and pull requests.
+
+## Current scope
+
+The management API does not have accounts or access control yet. Keep this version for local development; add authentication and authorization before deploying it publicly.
 
 ## Project layout
 
