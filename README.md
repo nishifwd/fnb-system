@@ -1,6 +1,6 @@
 # F&B System
 
-A restaurant and café web app in progress. Phase 1 provides a Laravel API, a React page that checks the API connection, SQLite migrations, and CI. Ordering, floor layout, QR ordering, kitchen workflow, and billing are planned for later phases.
+A restaurant and café web app in progress. The current local build lets you set business details, manage menu categories and items, and arrange dining tables. It uses a Laravel API, a React frontend, and SQLite. Staff ordering, customer QR ordering, kitchen tracking, and billing are planned for later phases.
 
 ## Requirements
 
@@ -37,6 +37,10 @@ npm run dev
 
 Open the local URL printed by Vite (usually [http://localhost:5173](http://localhost:5173)). The page should show **Laravel API connected**. Vite proxies `/api` requests to Laravel on `127.0.0.1:8001`, so keep both terminals running. You can also check [http://127.0.0.1:8001/api/v1/health](http://127.0.0.1:8001/api/v1/health) directly; it returns `{"status":"ok","service":"fnb-system"}`.
 
+Use the sidebar to edit **Business**, **Menu**, and **Tables**. In Tables, drag a table on the floor plan or enter exact X/Y positions. Categories containing items cannot be deleted until those items are removed.
+
+For optional fictional sample data, run `php artisan db:seed` from `backend`. Seeding can be run again without duplicating the sample records.
+
 If Herd works in a normal terminal but `php` is unavailable in an older terminal, close and reopen it so the PATH refreshes.
 
 ## Checks
@@ -56,6 +60,10 @@ npm run build
 ```
 
 GitHub Actions runs the SQLite migrations, Laravel tests, frontend lint, and frontend build on pushes and pull requests.
+
+## Current scope
+
+The management API does not have accounts or access control yet. Keep this version for local development; add authentication and authorization before deploying it publicly.
 
 ## Project layout
 
