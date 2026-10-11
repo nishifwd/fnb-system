@@ -11,6 +11,7 @@ type Props = {
 
 type Position = { id: number, x: number, y: number }
 type Bounds = { id: number, x: number, y: number, width: number, height: number }
+type EntrancePosition = { side: FloorLayout['entrance_side'], offset: string }
 
 function areaBounds(area: FloorArea): Bounds {
   return { id: area.id, x: Number(area.position_x), y: Number(area.position_y), width: Number(area.width), height: Number(area.height) }
@@ -45,6 +46,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
   const areaDrag = useRef<{ area: FloorArea, mode: 'move' | 'resize', startX: number, startY: number } | null>(null)
   const draftBoundsRef = useRef<Bounds | null>(null)
   const draftPositionRef = useRef<Position | null>(null)
+  const entranceDrag = useRef<{ initial: EntrancePosition, current: EntrancePosition } | null>(null)
   const [draftPosition, setDraftPosition] = useState<Position | null>(null)
   const [draftBounds, setDraftBounds] = useState<Bounds | null>(null)
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(areas[0]?.id ?? null)
@@ -209,19 +211,69 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
     }
   }
 
-  async function saveEntrance(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function persistEntrance(position: EntrancePosition, rollback?: EntrancePosition) {
     setBusy(true)
     setError('')
+    setMessage('')
     try {
-      await api.saveLayout({ entrance_side: entranceSide, entrance_offset: entranceOffset })
+      await api.saveLayout({ entrance_side: position.side, entrance_offset: position.offset })
       await onChanged()
       setMessage('Entrance saved.')
     } catch (caught) {
+      if (rollback) {
+        setEntranceSide(rollback.side)
+        setEntranceOffset(rollback.offset)
+      }
       setError(caught instanceof Error ? caught.message : 'Could not save entrance.')
     } finally {
       setBusy(false)
     }
+  }
+
+  function saveEntrance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void persistEntrance({ side: entranceSide, offset: entranceOffset })
+  }
+
+  function beginEntranceDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (busy) return
+    const position = { side: entranceSide, offset: entranceOffset }
+    entranceDrag.current = { initial: position, current: position }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function moveEntranceDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!entranceDrag.current || !boardRef.current) return
+    const board = boardRef.current.getBoundingClientRect()
+    const distances = [
+      { side: 'top', distance: Math.abs(event.clientY - board.top) },
+      { side: 'right', distance: Math.abs(event.clientX - board.right) },
+      { side: 'bottom', distance: Math.abs(event.clientY - board.bottom) },
+      { side: 'left', distance: Math.abs(event.clientX - board.left) },
+    ] as const
+    const nearest = distances.reduce((best, edge) => edge.distance < best.distance ? edge : best)
+    const along = nearest.side === 'top' || nearest.side === 'bottom'
+      ? (event.clientX - board.left) / board.width
+      : (event.clientY - board.top) / board.height
+    const next = { side: nearest.side, offset: String(Math.max(10, Math.min(90, Math.round(along * 100)))) }
+    entranceDrag.current.current = next
+    setEntranceSide(next.side)
+    setEntranceOffset(next.offset)
+  }
+
+  function endEntranceDrag() {
+    const drag = entranceDrag.current
+    entranceDrag.current = null
+    if (!drag || (drag.current.side === drag.initial.side && drag.current.offset === drag.initial.offset)) return
+    void persistEntrance(drag.current, drag.initial)
+  }
+
+  function cancelEntranceDrag() {
+    if (entranceDrag.current) {
+      setEntranceSide(entranceDrag.current.initial.side)
+      setEntranceOffset(entranceDrag.current.initial.offset)
+    }
+    entranceDrag.current = null
   }
 
   function beginAreaDrag(event: PointerEvent<HTMLElement>, area: FloorArea, mode: 'move' | 'resize') {
@@ -345,7 +397,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
           </form>
         )}
         <form className="entrance-form" onSubmit={(event) => void saveEntrance(event)}>
-          <span>Entrance</span>
+          <span>Entrance · drag the marker around the floor edge</span>
           <label className="field">Side<select value={entranceSide} onChange={(event) => setEntranceSide(event.target.value as FloorLayout['entrance_side'])}><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
           <label className="field">Position (%)<input type="number" min="10" max="90" value={entranceOffset} onChange={(event) => setEntranceOffset(event.target.value)} required /></label>
           <Button type="submit" isDisabled={busy}>Save entrance</Button>
@@ -401,7 +453,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
                 </div>
               )
             })}
-            <span className={`entrance-label entrance-${entranceSide}`} style={entranceSide === 'top' || entranceSide === 'bottom' ? { left: `${entranceOffset}%` } : { top: `${entranceOffset}%` }}>ENTRANCE</span>
+            <button type="button" className={`entrance-label entrance-${entranceSide}`} style={entranceSide === 'top' || entranceSide === 'bottom' ? { left: `${entranceOffset}%` } : { top: `${entranceOffset}%` }} onPointerDown={beginEntranceDrag} onPointerMove={moveEntranceDrag} onPointerUp={endEntranceDrag} onPointerCancel={cancelEntranceDrag} aria-label="Drag entrance around the floor plan edge">ENTRANCE</button>
           </div>
         </section>
         <section className="panel table-editor">
