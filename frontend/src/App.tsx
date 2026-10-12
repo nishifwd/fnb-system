@@ -6,9 +6,11 @@ import { MenuManager } from './components/MenuManager'
 import { TableManager } from './components/TableManager'
 import { LoginScreen } from './components/LoginScreen'
 import { StaffManager } from './components/StaffManager'
+import { WaiterOrders } from './components/WaiterOrders'
+import { KitchenOrders } from './components/KitchenOrders'
 import './App.css'
 
-type Section = 'overview' | 'business' | 'menu' | 'tables' | 'staff'
+type Section = 'overview' | 'business' | 'menu' | 'tables' | 'staff' | 'orders' | 'kitchen'
 type Snapshot = {
   business: BusinessProfile | null
   categories: MenuCategory[]
@@ -24,6 +26,8 @@ const navigation: { id: Section, label: string, symbol: string }[] = [
   { id: 'menu', label: 'Menu', symbol: '☷' },
   { id: 'tables', label: 'Tables', symbol: '▦' },
   { id: 'staff', label: 'Staff', symbol: '♙' },
+  { id: 'orders', label: 'Orders', symbol: '◫' },
+  { id: 'kitchen', label: 'Kitchen', symbol: '▤' },
 ]
 
 async function fetchSnapshot(): Promise<Snapshot> {
@@ -56,6 +60,8 @@ function App() {
     void Promise.all([api.health(), api.csrf()]).then(() => api.me()).then(async (currentUser) => {
       if (!active) return
       setUser(currentUser)
+      if (currentUser.role === 'waiter') setSection('orders')
+      if (currentUser.role === 'kitchen') setSection('kitchen')
       if (currentUser.role === 'owner' || currentUser.role === 'manager') {
         const next = await fetchSnapshot()
         if (active) setSnapshot(next)
@@ -73,6 +79,7 @@ function App() {
   async function handleLogin(currentUser: StaffUser) {
     setUser(currentUser)
     setError('')
+    setSection(currentUser.role === 'waiter' ? 'orders' : currentUser.role === 'kitchen' ? 'kitchen' : 'overview')
     if (currentUser.role === 'owner' || currentUser.role === 'manager') {
       setLoading(true)
       try { await refresh() } finally { setLoading(false) }
@@ -114,7 +121,12 @@ function App() {
         <div className="sidebar-brand"><div className="brand-mark">F&B</div><div><strong>F&B System</strong><small>Restaurant workspace</small></div></div>
         <div className="nav-label">WORKSPACE</div>
         <nav aria-label="Main navigation">
-          {navigation.filter((item) => item.id === 'overview' || (item.id === 'staff' ? user.role === 'owner' : canManage)).map((item) => (
+          {navigation.filter((item) => {
+            if (item.id === 'staff') return user.role === 'owner'
+            if (item.id === 'orders') return user.role !== 'kitchen'
+            if (item.id === 'kitchen') return user.role !== 'waiter'
+            return canManage
+          }).map((item) => (
             <button key={item.id} type="button" className={`nav-item${section === item.id ? ' active' : ''}`} onClick={() => setSection(item.id)}>
               <span className="nav-symbol" aria-hidden="true">{item.symbol}</span>{item.label}
             </button>
@@ -130,7 +142,6 @@ function App() {
           {!loading && error && !snapshot && (
             <div className="panel loading-panel"><h2>Could not connect to Laravel</h2><p>{error}</p><Button onPress={() => void retry()}>Try again</Button></div>
           )}
-          {!loading && !canManage && <div className="panel role-panel"><p className="eyebrow">SIGNED IN AS {user.role.toUpperCase()}</p><h1>Welcome, {user.name}</h1><p>Your {user.role} workflow will be added with ordering and kitchen tracking. Your account is ready.</p></div>}
           {!loading && snapshot && section === 'overview' && (
             <div className="section-stack">
               <div className="welcome-panel">
@@ -143,13 +154,15 @@ function App() {
                 <button type="button" className="stat-card" onClick={() => setSection('menu')}><span>Menu items</span><strong>{snapshot.items.length}</strong><small>Manage items ↗</small></button>
                 <button type="button" className="stat-card" onClick={() => setSection('tables')}><span>Dining tables</span><strong>{snapshot.tables.length}</strong><small>{snapshot.areas.length} areas · Arrange floor ↗</small></button>
               </div>
-              <div className="panel next-step-panel"><div><p className="eyebrow">BUILDING BLOCKS</p><h2>Prepare your workspace</h2><p>Start with your business details, then add menu items and arrange tables. Ordering, kitchen tracking, QR codes, and invoices come in later phases.</p></div><Button variant="secondary" onPress={() => setSection('menu')}>Manage menu</Button></div>
+              <div className="panel next-step-panel"><div><p className="eyebrow">BUILDING BLOCKS</p><h2>Prepare your workspace</h2><p>Set up your business, menu, and tables, then use Orders and Kitchen during service. QR codes and invoices come in later phases.</p></div><Button variant="secondary" onPress={() => setSection('menu')}>Manage menu</Button></div>
             </div>
           )}
           {!loading && snapshot && section === 'business' && <BusinessSettings profile={snapshot.business} onChanged={refresh} />}
           {!loading && snapshot && section === 'menu' && <MenuManager categories={snapshot.categories} items={snapshot.items} currency={snapshot.business?.currency ?? 'MYR'} onChanged={refresh} />}
           {!loading && snapshot && section === 'tables' && <TableManager areas={snapshot.areas} layout={snapshot.layout} tables={snapshot.tables} onChanged={refresh} />}
           {!loading && user.role === 'owner' && section === 'staff' && <StaffManager />}
+          {!loading && section === 'orders' && <WaiterOrders />}
+          {!loading && section === 'kitchen' && <KitchenOrders />}
         </main>
       </div>
     </div>

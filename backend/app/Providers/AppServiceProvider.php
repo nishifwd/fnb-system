@@ -23,5 +23,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::define('manage-workspace', fn (User $user): bool => $user->canManageWorkspace());
         Gate::define('manage-staff', fn (User $user): bool => $user->role === User::ROLE_OWNER);
+        Gate::define('place-orders', fn (User $user): bool => in_array($user->role, [User::ROLE_OWNER, User::ROLE_MANAGER, User::ROLE_WAITER], true));
+        Gate::define('work-kitchen', fn (User $user): bool => in_array($user->role, [User::ROLE_OWNER, User::ROLE_MANAGER, User::ROLE_KITCHEN], true));
     }
 }

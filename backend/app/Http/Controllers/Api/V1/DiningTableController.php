@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DiningTableResource;
 use App\Models\DiningTable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -38,8 +39,12 @@ class DiningTableController extends Controller
         return new DiningTableResource($diningTable);
     }
 
-    public function destroy(DiningTable $diningTable): Response
+    public function destroy(DiningTable $diningTable): Response|JsonResponse
     {
+        if ($diningTable->orders()->exists()) {
+            return response()->json(['message' => 'This table has order history and cannot be deleted.'], 409);
+        }
+
         $diningTable->delete();
 
         return response()->noContent();

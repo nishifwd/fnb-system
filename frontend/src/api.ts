@@ -9,6 +9,12 @@ export type BusinessProfile = {
 export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen'
 export type StaffUser = { id: number, name: string, email: string, role: StaffRole }
 export type StaffInput = { name: string, email: string, role: Exclude<StaffRole, 'owner'>, password: string }
+export type ServiceTable = DiningTable & { area: string }
+export type ServiceMenuItem = { id: number, name: string, price: string, category: string }
+export type ServiceCatalog = { tables: ServiceTable[], areas: FloorArea[], layout: FloorLayout, menu: ServiceMenuItem[], currency: string }
+export type OrderStatus = 'placed' | 'preparing' | 'ready' | 'served'
+export type OrderLine = { id: number, menu_item_id: number | null, name: string, unit_price: string, quantity: number, line_total: string }
+export type ServiceOrder = { id: number, dining_table_id: number, table_label: string, status: OrderStatus, total: string, note: string | null, created_at: string, items: OrderLine[] }
 
 export class ApiError extends Error {
   status: number
@@ -126,6 +132,11 @@ export const api = {
   staff: () => request<StaffUser[]>('/staff'),
   createStaff: (data: StaffInput) => request<StaffUser>('/staff', 'POST', data),
   deleteStaff: (id: number) => request<void>(`/staff/${id}`, 'DELETE'),
+  serviceCatalog: () => request<ServiceCatalog>('/service/catalog'),
+  orders: () => request<ServiceOrder[]>('/orders'),
+  placeOrder: (data: { dining_table_id: number, note: string | null, items: { menu_item_id: number, quantity: number }[] }) =>
+    request<ServiceOrder>('/orders', 'POST', data),
+  updateOrderStatus: (id: number, status: OrderStatus) => request<ServiceOrder>(`/orders/${id}/status`, 'PATCH', { status }),
   health: async () => {
     const response = await fetch('/api/v1/health')
     const body: unknown = await response.json()
