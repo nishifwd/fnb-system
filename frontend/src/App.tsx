@@ -8,9 +8,10 @@ import { LoginScreen } from './components/LoginScreen'
 import { StaffManager } from './components/StaffManager'
 import { WaiterOrders } from './components/WaiterOrders'
 import { KitchenOrders } from './components/KitchenOrders'
+import { Billing } from './components/Billing'
 import './App.css'
 
-type Section = 'overview' | 'business' | 'menu' | 'tables' | 'staff' | 'orders' | 'kitchen'
+type Section = 'overview' | 'business' | 'menu' | 'tables' | 'staff' | 'orders' | 'kitchen' | 'billing'
 type Snapshot = {
   business: BusinessProfile | null
   categories: MenuCategory[]
@@ -28,6 +29,7 @@ const navigation: { id: Section, label: string, symbol: string }[] = [
   { id: 'staff', label: 'Staff', symbol: '♙' },
   { id: 'orders', label: 'Orders', symbol: '◫' },
   { id: 'kitchen', label: 'Kitchen', symbol: '▤' },
+  { id: 'billing', label: 'Billing', symbol: '▣' },
 ]
 
 async function fetchSnapshot(): Promise<Snapshot> {
@@ -125,6 +127,7 @@ function App() {
             if (item.id === 'staff') return user.role === 'owner'
             if (item.id === 'orders') return user.role !== 'kitchen'
             if (item.id === 'kitchen') return user.role !== 'waiter'
+            if (item.id === 'billing') return user.role !== 'kitchen'
             if (item.id === 'tables' && snapshot?.business?.service_mode === 'takeaway') return false
             return canManage
           }).map((item) => (
@@ -155,7 +158,7 @@ function App() {
                 <button type="button" className="stat-card" onClick={() => setSection('menu')}><span>Menu items</span><strong>{snapshot.items.length}</strong><small>Manage items ↗</small></button>
                 {snapshot.business?.service_mode !== 'takeaway' && <button type="button" className="stat-card" onClick={() => setSection('tables')}><span>Dining tables</span><strong>{snapshot.tables.length}</strong><small>{snapshot.areas.length} areas · Arrange floor ↗</small></button>}
               </div>
-              <div className="panel next-step-panel"><div><p className="eyebrow">BUILDING BLOCKS</p><h2>Prepare your workspace</h2><p>Set up your business and menu, then use Orders and Kitchen during service. QR codes and invoices come in later phases.</p></div><Button variant="secondary" onPress={() => setSection('menu')}>Manage menu</Button></div>
+              <div className="panel next-step-panel"><div><p className="eyebrow">SERVICE FLOW</p><h2>From order to receipt</h2><p>Set up your business and menu, use Orders and Kitchen during service, then record payment in Billing. Customer QR ordering is planned next.</p></div><Button variant="secondary" onPress={() => setSection('billing')}>Open billing</Button></div>
             </div>
           )}
           {!loading && snapshot && section === 'business' && <BusinessSettings profile={snapshot.business} onChanged={refresh} />}
@@ -164,6 +167,7 @@ function App() {
           {!loading && user.role === 'owner' && section === 'staff' && <StaffManager />}
           {!loading && section === 'orders' && <WaiterOrders />}
           {!loading && section === 'kitchen' && <KitchenOrders />}
+          {!loading && section === 'billing' && <Billing />}
         </main>
       </div>
     </div>

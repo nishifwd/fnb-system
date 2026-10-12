@@ -18,8 +18,8 @@ class FloorLayoutFactory extends Factory
     public function definition(): array
     {
         return [
-            'entrance_side' => 'bottom',
-            'entrance_offset' => 50,
+            'entrance_x' => 50,
+            'entrance_y' => 100,
         ];
     }
 }

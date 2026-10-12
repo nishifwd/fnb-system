@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { api, orderDestination, type ServiceCatalog, type ServiceOrder } from '../api'
+import { api, orderDestination, preparationLabel, type OrderItemInput, type ServiceCatalog, type ServiceMenuItem, type ServiceOrder } from '../api'
+import { OrderItemCustomizer, type CartLine } from './OrderItemCustomizer'
+import { OrderItemList } from './OrderItemList'
 
 function footprint(shape: string, rotation: number) {
-  if (shape !== 'rectangle') return { width: 76, height: 76 }
-  return rotation === 90 || rotation === 270 ? { width: 68, height: 120 } : { width: 120, height: 68 }
+  if (shape !== 'rectangle') return { width: 60, height: 60 }
+  return rotation === 90 || rotation === 270 ? { width: 54, height: 96 } : { width: 96, height: 54 }
 }
 
 export function WaiterOrders() {
@@ -13,7 +15,9 @@ export function WaiterOrders() {
   const [tableId, setTableId] = useState<number | null>(null)
   const [orderType, setOrderType] = useState<'dine_in' | 'takeaway'>('dine_in')
   const [pickupName, setPickupName] = useState('')
-  const [quantities, setQuantities] = useState<Record<number, number>>({})
+  const [cart, setCart] = useState<CartLine[]>([])
+  const nextCartKey = useRef(0)
+  const [editing, setEditing] = useState<{ item: ServiceMenuItem, line?: CartLine } | null>(null)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -34,14 +38,19 @@ export function WaiterOrders() {
     return () => { active = false; window.clearInterval(timer) }
   }, [])
 
-  function changeQuantity(id: number, change: number) {
-    setQuantities((current) => ({ ...current, [id]: Math.max(0, Math.min(20, (current[id] ?? 0) + change)) }))
-  }
-
   async function placeOrder() {
     if (orderType === 'dine_in' && tableId === null) return
-    const items = Object.entries(quantities).filter(([, quantity]) => quantity > 0)
-      .map(([id, quantity]) => ({ menu_item_id: Number(id), quantity }))
+    const items: OrderItemInput[] = cart.map(({ menu_item_id, quantity, preparation, remark }) => {
+      const base = { menu_item_id, quantity, remark }
+      if (!preparation) return base
+      return {
+        ...base,
+        size: preparation.size,
+        ...(preparation.temperature && { temperature: preparation.temperature }),
+        ...(preparation.sugar && { sugar: preparation.sugar }),
+        ...(preparation.ice && { ice: preparation.ice }),
+      }
+    })
     if (items.length === 0) { setError('Choose at least one menu item.'); return }
     setBusy(true)
     setError('')
@@ -49,14 +58,14 @@ export function WaiterOrders() {
     try {
       const order = await api.placeOrder({
         order_type: orderType,
-        ...(orderType === 'dine_in' ? { dining_table_id: tableId! } : { pickup_name: pickupName.trim() || null }),
+        ...(orderType === 'dine_in' ? { dining_table_id: tableId ?? undefined } : { pickup_name: pickupName.trim() || null }),
         note: note.trim() || null,
         items,
       })
-      await refreshOrders()
-      setQuantities({})
+      setCart([])
       setNote('')
       setPickupName('')
+      setOrders((current) => [order, ...current])
       setMessage(`Order #${order.id} sent to the kitchen.`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not place order.')
@@ -68,7 +77,7 @@ export function WaiterOrders() {
     setError('')
     try {
       await api.updateOrderStatus(order.id, 'served')
-      await refreshOrders()
+      setOrders((current) => current.filter((entry) => entry.id !== order.id))
       setMessage(`Order #${order.id} marked ${order.order_type === 'takeaway' ? 'collected' : 'served'}.`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not update order.')
@@ -77,8 +86,26 @@ export function WaiterOrders() {
 
   const selectedTable = catalog?.tables.find((table) => table.id === tableId)
   const canOrder = orderType === 'takeaway' || selectedTable !== undefined
-  const selectedLines = catalog?.menu.filter((item) => (quantities[item.id] ?? 0) > 0) ?? []
-  const total = selectedLines.reduce((sum, item) => sum + Number(item.price) * (quantities[item.id] ?? 0), 0)
+  const total = cart.reduce((sum, line) => sum + line.price * line.quantity, 0)
+  const menuGroups = new Map<string, ServiceMenuItem[]>()
+  for (const item of catalog?.menu ?? []) {
+    const group = menuGroups.get(item.category) ?? []
+    group.push(item)
+    menuGroups.set(item.category, group)
+  }
+
+  function editCartLine(line: CartLine) {
+    const item = catalog?.menu.find((entry) => entry.id === line.menu_item_id)
+    if (item) setEditing({ item, line })
+  }
+
+  function saveCartLine(line: Omit<CartLine, 'key'>) {
+    const key = editing?.line?.key ?? ++nextCartKey.current
+    setCart((current) => editing?.line
+      ? current.map((entry) => entry.key === key ? { ...line, key } : entry)
+      : [...current, { ...line, key }])
+    setEditing(null)
+  }
 
   return <div className="section-stack">
     <div className="section-heading"><div><p className="eyebrow">SERVICE</p><h1>Orders</h1></div><p>Choose dine-in or takeaway, then send items to the kitchen.</p></div>
@@ -99,23 +126,73 @@ export function WaiterOrders() {
               return <button key={table.id} type="button" className={`floor-table shape-${table.shape} rotation-${table.rotation}${tableId === table.id ? ' selected' : ''}`} style={{ left: `min(${table.position_x}%, calc(100% - ${size.width}px))`, top: `min(${table.position_y}%, calc(100% - ${size.height}px))` }} aria-label={`Select table ${table.label}, ${table.capacity} seats in ${area.name}`} onClick={() => { setTableId(table.id); setMessage('') }}><span className="orientation-marker" aria-hidden="true" /><strong>{table.label}</strong><small>{table.capacity} seats</small></button>
             })}
           </div>)}
-          <span className={`entrance-label entrance-${catalog.layout.entrance_side}`} style={catalog.layout.entrance_side === 'top' || catalog.layout.entrance_side === 'bottom' ? { left: `${catalog.layout.entrance_offset}%` } : { top: `${catalog.layout.entrance_offset}%` }}>ENTRANCE</span>
+          <span className="entrance-label" style={{ left: `clamp(45px, ${catalog.layout.entrance_x}%, calc(100% - 45px))`, top: `clamp(15px, ${catalog.layout.entrance_y}%, calc(100% - 15px))` }}>ENTRANCE</span>
         </div></div>
         {catalog.tables.length === 0 && <p>No tables yet. Ask a manager to add them.</p>}
       </section>}
       <section className="panel"><div className="service-heading"><h2>{orderType === 'takeaway' ? 'Takeaway order' : selectedTable ? `Order for ${selectedTable.label}` : 'New order'}</h2><span>{catalog.currency} {total.toFixed(2)}</span></div>
         {!canOrder ? <p>Choose a table to start.</p> : <>
           {orderType === 'takeaway' && <label className="field service-note">Pickup name (optional)<input value={pickupName} onChange={(event) => setPickupName(event.target.value)} maxLength={100} placeholder="Use the order number if left blank" /></label>}
-          <div className="service-menu">{catalog.menu.map((item) => <div className="service-menu-item" key={item.id}><div><strong>{item.name}</strong><small>{item.category} · {catalog.currency} {item.price}</small></div><div className="quantity-control"><button type="button" aria-label={`Remove ${item.name}`} onClick={() => changeQuantity(item.id, -1)}>−</button><span>{quantities[item.id] ?? 0}</span><button type="button" aria-label={`Add ${item.name}`} onClick={() => changeQuantity(item.id, 1)}>+</button></div></div>)}</div>
+          <div className="service-menu">
+            {Array.from(menuGroups, ([name, groupItems]) => <section className="service-menu-group" key={name} aria-label={name}>
+              <h3>{name}</h3>
+              {groupItems.map((item) => <div className="service-menu-item" key={item.id}>
+                <div>
+                  <strong>{item.name}</strong>
+                  <small>{item.is_drink ? 'Drink' : 'Food'} · {catalog.currency} {item.price}</small>
+                </div>
+                <Button variant="secondary" isDisabled={cart.length >= 30} onPress={() => setEditing({ item })}>Customize +</Button>
+              </div>)}
+            </section>)}
+          </div>
           {catalog.menu.length === 0 && <p>No available menu items yet. Ask a manager to add them.</p>}
-          <label className="field service-note">Kitchen note<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} rows={2} placeholder="Optional, e.g. no sugar" /></label>
-          <Button onPress={() => void placeOrder()} isDisabled={busy || selectedLines.length === 0}>Send order · {catalog.currency} {total.toFixed(2)}</Button>
+          {cart.length > 0 && <div className="cart-section">
+            <h3>Order items <span>{cart.length}</span></h3>
+            {cart.map((line) => <div className="cart-line" key={line.key}>
+              <div>
+                <strong>{line.quantity} × {line.name}</strong>
+                {line.preparation && <small>{preparationLabel(line.preparation)}</small>}
+                {line.remark && <small>Remark: {line.remark}</small>}
+              </div>
+              <div className="cart-line-actions">
+                <span>{catalog.currency} {(line.price * line.quantity).toFixed(2)}</span>
+                <Button variant="secondary" isDisabled={!catalog.menu.some((item) => item.id === line.menu_item_id)} onPress={() => editCartLine(line)}>Edit</Button>
+                <Button variant="secondary" onPress={() => setCart((current) => current.filter((entry) => entry.key !== line.key))}>Remove</Button>
+              </div>
+            </div>)}
+          </div>}
+          <label className="field service-note">Kitchen note<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} rows={2} placeholder="Optional note for the whole order" /></label>
+          <Button onPress={() => void placeOrder()} isDisabled={busy || cart.length === 0}>Send order · {catalog.currency} {total.toFixed(2)}</Button>
         </>}
       </section>
     </div></>}
-    <section className="panel"><div className="service-heading"><h2>Open orders</h2><Button variant="secondary" onPress={() => void refreshOrders()}>Refresh</Button></div>
-      <div className="order-list">{orders.map((order) => <div className="order-card" key={order.id}><div className="order-card-head"><div><strong>#{order.id} · {orderDestination(order)}</strong><small>{new Date(order.created_at).toLocaleTimeString()}</small></div><span className={`order-status ${order.status}`}>{order.status}</span></div><p>{order.items.map((item) => `${item.quantity}× ${item.name}`).join(', ')}</p>{order.note && <small>Note: {order.note}</small>}{order.status === 'ready' && <Button variant="secondary" isDisabled={busy} onPress={() => void markServed(order)}>{order.order_type === 'takeaway' ? 'Mark collected' : 'Mark served'}</Button>}</div>)}</div>
+    <section className="panel">
+      <div className="service-heading"><h2>Open orders</h2><Button variant="secondary" onPress={() => void refreshOrders()}>Refresh</Button></div>
+      <div className="order-list">
+        {orders.map((order) => <div className="order-card" key={order.id}>
+          <div className="order-card-head">
+            <div>
+              <strong>#{order.id} · {orderDestination(order)}</strong>
+              <small>{new Date(order.created_at).toLocaleTimeString()}</small>
+            </div>
+            <span className={`order-status ${order.status}`}>{order.status}</span>
+          </div>
+          <OrderItemList items={order.items} />
+          {order.note && <small>Order note: {order.note}</small>}
+          {order.status === 'ready' && <Button variant="secondary" isDisabled={busy} onPress={() => void markServed(order)}>
+            {order.order_type === 'takeaway' ? 'Mark collected' : 'Mark served'}
+          </Button>}
+        </div>)}
+      </div>
       {orders.length === 0 && <p>No open orders.</p>}
     </section>
+    {editing && catalog && <OrderItemCustomizer
+      key={`${editing.item.id}-${editing.line?.key ?? 'new'}`}
+      item={editing.item}
+      initial={editing.line}
+      currency={catalog.currency}
+      onClose={() => setEditing(null)}
+      onSave={saveCartLine}
+    />}
   </div>
 }

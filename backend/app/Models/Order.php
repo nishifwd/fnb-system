@@ -25,11 +25,26 @@ class Order extends Model
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
-    protected $fillable = ['dining_table_id', 'created_by', 'status', 'total', 'note', 'order_type', 'pickup_name'];
+    protected $fillable = [
+        'dining_table_id', 'created_by', 'status', 'total', 'note', 'order_type', 'pickup_name', 'currency',
+        'discount_amount', 'service_charge_amount', 'tax_amount', 'grand_total',
+        'receipt_service_charge_rate', 'receipt_tax_rate', 'payment_method', 'payment_reference', 'payment_verified_by', 'paid_at',
+        'receipt_business_name', 'receipt_business_phone', 'receipt_business_address',
+        'receipt_currency', 'receipt_destination',
+    ];
 
     protected function casts(): array
     {
-        return ['total' => 'decimal:2'];
+        return [
+            'total' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'service_charge_amount' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'grand_total' => 'decimal:2',
+            'receipt_service_charge_rate' => 'decimal:2',
+            'receipt_tax_rate' => 'decimal:2',
+            'paid_at' => 'datetime',
+        ];
     }
 
     public function table(): BelongsTo

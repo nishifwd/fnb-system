@@ -21,6 +21,9 @@ class BusinessProfileResource extends JsonResource
             'address' => $this->address,
             'currency' => $this->currency,
             'service_mode' => $this->service_mode,
+            'service_charge_rate' => $this->service_charge_rate,
+            'tax_rate' => $this->tax_rate,
+            'has_payment_qr' => $this->payment_qr_path !== null,
         ];
     }
 }

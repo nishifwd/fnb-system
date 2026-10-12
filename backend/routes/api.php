@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BillingController;
 use App\Http\Controllers\Api\V1\BusinessProfileController;
 use App\Http\Controllers\Api\V1\DiningTableController;
 use App\Http\Controllers\Api\V1\FloorAreaController;
@@ -30,6 +31,10 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/orders', [OrderController::class, 'index']);
             Route::post('/orders', [OrderController::class, 'store']);
             Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+            Route::get('/billing/orders', [BillingController::class, 'index']);
+            Route::get('/billing/orders/{order}', [BillingController::class, 'show']);
+            Route::post('/billing/orders/{order}/payment', [BillingController::class, 'pay']);
+            Route::get('/business/payment-qr', [BusinessProfileController::class, 'paymentQr'])->middleware('can:place-orders');
 
             Route::middleware('can:manage-staff')->group(function (): void {
                 Route::get('/staff', [StaffController::class, 'index']);
@@ -40,6 +45,8 @@ Route::prefix('v1')->group(function (): void {
             Route::middleware('can:manage-workspace')->group(function (): void {
                 Route::get('/business', [BusinessProfileController::class, 'show']);
                 Route::put('/business', [BusinessProfileController::class, 'update']);
+                Route::post('/business/payment-qr', [BusinessProfileController::class, 'uploadPaymentQr']);
+                Route::delete('/business/payment-qr', [BusinessProfileController::class, 'removePaymentQr']);
                 Route::apiResource('categories', MenuCategoryController::class)
                     ->parameters(['categories' => 'menuCategory']);
                 Route::apiResource('items', MenuItemController::class)

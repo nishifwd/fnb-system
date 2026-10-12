@@ -11,7 +11,7 @@ type Props = {
 
 type Position = { id: number, x: number, y: number }
 type Bounds = { id: number, x: number, y: number, width: number, height: number }
-type EntrancePosition = { side: FloorLayout['entrance_side'], offset: string }
+type EntrancePosition = { x: string, y: string }
 
 function areaBounds(area: FloorArea): Bounds {
   return { id: area.id, x: Number(area.position_x), y: Number(area.position_y), width: Number(area.width), height: Number(area.height) }
@@ -22,10 +22,10 @@ function nextRotation(rotation: DiningTable['rotation']): DiningTable['rotation'
 }
 
 function tableFootprint(shape: DiningTable['shape'], rotation: DiningTable['rotation']) {
-  if (shape !== 'rectangle') return { width: 76, height: 76 }
+  if (shape !== 'rectangle') return { width: 60, height: 60 }
   return rotation === 90 || rotation === 270
-    ? { width: 68, height: 120 }
-    : { width: 120, height: 68 }
+    ? { width: 54, height: 96 }
+    : { width: 96, height: 54 }
 }
 
 function tableInput(table: DiningTable): TableInput {
@@ -46,7 +46,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
   const areaDrag = useRef<{ area: FloorArea, mode: 'move' | 'resize', startX: number, startY: number } | null>(null)
   const draftBoundsRef = useRef<Bounds | null>(null)
   const draftPositionRef = useRef<Position | null>(null)
-  const entranceDrag = useRef<{ initial: EntrancePosition, current: EntrancePosition } | null>(null)
+  const entranceDrag = useRef<{ initial: EntrancePosition, current: EntrancePosition, grabX: number, grabY: number } | null>(null)
   const [draftPosition, setDraftPosition] = useState<Position | null>(null)
   const [draftBounds, setDraftBounds] = useState<Bounds | null>(null)
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(areas[0]?.id ?? null)
@@ -58,8 +58,8 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
   const [areaY, setAreaY] = useState('0')
   const [areaWidth, setAreaWidth] = useState('35')
   const [areaHeight, setAreaHeight] = useState('100')
-  const [entranceSide, setEntranceSide] = useState<FloorLayout['entrance_side']>(layout.entrance_side)
-  const [entranceOffset, setEntranceOffset] = useState(layout.entrance_offset)
+  const [entranceX, setEntranceX] = useState(layout.entrance_x)
+  const [entranceY, setEntranceY] = useState(layout.entrance_y)
   const [tableId, setTableId] = useState<number | null>(null)
   const [tableAreaId, setTableAreaId] = useState(String(areas[0]?.id ?? ''))
   const [label, setLabel] = useState('')
@@ -216,13 +216,13 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
     setError('')
     setMessage('')
     try {
-      await api.saveLayout({ entrance_side: position.side, entrance_offset: position.offset })
+      await api.saveLayout({ entrance_x: position.x, entrance_y: position.y })
       await onChanged()
       setMessage('Entrance saved.')
     } catch (caught) {
       if (rollback) {
-        setEntranceSide(rollback.side)
-        setEntranceOffset(rollback.offset)
+        setEntranceX(rollback.x)
+        setEntranceY(rollback.y)
       }
       setError(caught instanceof Error ? caught.message : 'Could not save entrance.')
     } finally {
@@ -232,46 +232,50 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
 
   function saveEntrance(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    void persistEntrance({ side: entranceSide, offset: entranceOffset })
+    void persistEntrance({ x: entranceX, y: entranceY })
   }
 
   function beginEntranceDrag(event: PointerEvent<HTMLButtonElement>) {
     if (busy) return
-    const position = { side: entranceSide, offset: entranceOffset }
-    entranceDrag.current = { initial: position, current: position }
+    const position = { x: entranceX, y: entranceY }
+    const marker = event.currentTarget.getBoundingClientRect()
+    entranceDrag.current = {
+      initial: position,
+      current: position,
+      grabX: event.clientX - marker.left - marker.width / 2,
+      grabY: event.clientY - marker.top - marker.height / 2,
+    }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   function moveEntranceDrag(event: PointerEvent<HTMLButtonElement>) {
     if (!entranceDrag.current || !boardRef.current) return
     const board = boardRef.current.getBoundingClientRect()
-    const distances = [
-      { side: 'top', distance: Math.abs(event.clientY - board.top) },
-      { side: 'right', distance: Math.abs(event.clientX - board.right) },
-      { side: 'bottom', distance: Math.abs(event.clientY - board.bottom) },
-      { side: 'left', distance: Math.abs(event.clientX - board.left) },
-    ] as const
-    const nearest = distances.reduce((best, edge) => edge.distance < best.distance ? edge : best)
-    const along = nearest.side === 'top' || nearest.side === 'bottom'
-      ? (event.clientX - board.left) / board.width
-      : (event.clientY - board.top) / board.height
-    const next = { side: nearest.side, offset: String(Math.max(10, Math.min(90, Math.round(along * 100)))) }
+    const marker = event.currentTarget.getBoundingClientRect()
+    const halfWidth = marker.width / 2
+    const halfHeight = marker.height / 2
+    const centerX = Math.max(halfWidth, Math.min(board.width - halfWidth, event.clientX - board.left - entranceDrag.current.grabX))
+    const centerY = Math.max(halfHeight, Math.min(board.height - halfHeight, event.clientY - board.top - entranceDrag.current.grabY))
+    const next = {
+      x: String(Math.round(centerX / board.width * 10000) / 100),
+      y: String(Math.round(centerY / board.height * 10000) / 100),
+    }
     entranceDrag.current.current = next
-    setEntranceSide(next.side)
-    setEntranceOffset(next.offset)
+    setEntranceX(next.x)
+    setEntranceY(next.y)
   }
 
   function endEntranceDrag() {
     const drag = entranceDrag.current
     entranceDrag.current = null
-    if (!drag || (drag.current.side === drag.initial.side && drag.current.offset === drag.initial.offset)) return
+    if (!drag || (drag.current.x === drag.initial.x && drag.current.y === drag.initial.y)) return
     void persistEntrance(drag.current, drag.initial)
   }
 
   function cancelEntranceDrag() {
     if (entranceDrag.current) {
-      setEntranceSide(entranceDrag.current.initial.side)
-      setEntranceOffset(entranceDrag.current.initial.offset)
+      setEntranceX(entranceDrag.current.initial.x)
+      setEntranceY(entranceDrag.current.initial.y)
     }
     entranceDrag.current = null
   }
@@ -397,9 +401,9 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
           </form>
         )}
         <form className="entrance-form" onSubmit={(event) => void saveEntrance(event)}>
-          <span>Entrance · drag the marker around the floor edge</span>
-          <label className="field">Side<select value={entranceSide} onChange={(event) => setEntranceSide(event.target.value as FloorLayout['entrance_side'])}><option value="bottom">Bottom</option><option value="top">Top</option><option value="left">Left</option><option value="right">Right</option></select></label>
-          <label className="field">Position (%)<input type="number" min="10" max="90" value={entranceOffset} onChange={(event) => setEntranceOffset(event.target.value)} required /></label>
+          <span>Entrance · drag the marker anywhere on the floor plan</span>
+          <label className="field">Left (%)<input type="number" min="0" max="100" step="0.01" value={entranceX} onChange={(event) => setEntranceX(event.target.value)} required /></label>
+          <label className="field">Top (%)<input type="number" min="0" max="100" step="0.01" value={entranceY} onChange={(event) => setEntranceY(event.target.value)} required /></label>
           <Button type="submit" isDisabled={busy}>Save entrance</Button>
         </form>
       </section>
@@ -453,7 +457,7 @@ export function TableManager({ areas, layout, tables, onChanged }: Props) {
                 </div>
               )
             })}
-            <button type="button" className={`entrance-label entrance-${entranceSide}`} style={entranceSide === 'top' || entranceSide === 'bottom' ? { left: `${entranceOffset}%` } : { top: `${entranceOffset}%` }} onPointerDown={beginEntranceDrag} onPointerMove={moveEntranceDrag} onPointerUp={endEntranceDrag} onPointerCancel={cancelEntranceDrag} aria-label="Drag entrance around the floor plan edge">ENTRANCE</button>
+            <button type="button" className="entrance-label" style={{ left: `clamp(45px, ${entranceX}%, calc(100% - 45px))`, top: `clamp(15px, ${entranceY}%, calc(100% - 15px))` }} onPointerDown={beginEntranceDrag} onPointerMove={moveEntranceDrag} onPointerUp={endEntranceDrag} onPointerCancel={cancelEntranceDrag} aria-label="Drag entrance anywhere on the floor plan">ENTRANCE</button>
           </div>
         </section>
         <section className="panel table-editor">

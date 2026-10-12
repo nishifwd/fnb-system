@@ -49,10 +49,15 @@ class MenuCategoryController extends Controller
     /** @return array{name: string, sort_order: int, is_active: bool} */
     private function validatedData(Request $request, ?MenuCategory $category = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('menu_categories', 'name')->ignore($category?->id)],
-            'sort_order' => ['required', 'integer', 'min:0'],
+            'sort_order' => ['sometimes', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
         ]);
+
+        $data['sort_order'] ??= $category?->sort_order
+            ?? ((MenuCategory::query()->max('sort_order') ?? -1) + 1);
+
+        return $data;
     }
 }

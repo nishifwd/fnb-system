@@ -23,6 +23,11 @@ class OrderResource extends JsonResource
             'created_by' => $this->created_by,
             'status' => $this->status,
             'total' => $this->total,
+            'currency' => $this->currency,
+            'grand_total' => $this->grand_total,
+            'payment_method' => $this->payment_method,
+            'payment_reference' => $this->payment_reference,
+            'paid_at' => $this->paid_at?->toIso8601String(),
             'note' => $this->note,
             'created_at' => $this->created_at?->toIso8601String(),
             'items' => $this->whenLoaded('items', fn (): array => $this->items->map(fn ($item): array => [
@@ -32,6 +37,8 @@ class OrderResource extends JsonResource
                 'unit_price' => $item->unit_price,
                 'quantity' => $item->quantity,
                 'line_total' => $item->line_total,
+                'preparation' => $item->preparation === null ? null : array_merge(['size' => 'standard'], $item->preparation),
+                'remark' => $item->remark,
             ])->all()),
         ];
     }

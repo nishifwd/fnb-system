@@ -12,6 +12,6 @@ class FloorLayoutSeeder extends Seeder
      */
     public function run(): void
     {
-        FloorLayout::query()->firstOrCreate(['id' => 1], ['entrance_side' => 'bottom', 'entrance_offset' => 50]);
+        FloorLayout::query()->firstOrCreate(['id' => 1], ['entrance_x' => 50, 'entrance_y' => 100]);
     }
 }

@@ -15,8 +15,8 @@ class FloorLayoutResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'entrance_side' => $this->entrance_side,
-            'entrance_offset' => $this->entrance_offset,
+            'entrance_x' => $this->entrance_x,
+            'entrance_y' => $this->entrance_y,
         ];
     }
 }

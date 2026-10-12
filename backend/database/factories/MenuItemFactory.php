@@ -24,6 +24,8 @@ class MenuItemFactory extends Factory
             'description' => fake()->sentence(),
             'price' => fake()->randomFloat(2, 2, 50),
             'is_available' => true,
+            'is_drink' => false,
+            'drink_options' => null,
             'sort_order' => 0,
         ];
     }

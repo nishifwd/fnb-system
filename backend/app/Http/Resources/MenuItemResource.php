@@ -21,6 +21,8 @@ class MenuItemResource extends JsonResource
             'description' => $this->description,
             'price' => $this->price,
             'is_available' => $this->is_available,
+            'is_drink' => $this->is_drink,
+            'drink_options' => $this->drink_options,
             'sort_order' => $this->sort_order,
         ];
     }

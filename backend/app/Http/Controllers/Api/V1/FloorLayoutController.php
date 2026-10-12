@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FloorLayoutResource;
 use App\Models\FloorLayout;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class FloorLayoutController extends Controller
 {
@@ -18,8 +17,8 @@ class FloorLayoutController extends Controller
     public function update(Request $request): FloorLayoutResource
     {
         $data = $request->validate([
-            'entrance_side' => ['required', Rule::in(['top', 'right', 'bottom', 'left'])],
-            'entrance_offset' => ['required', 'numeric', 'between:10,90'],
+            'entrance_x' => ['required', 'numeric', 'between:0,100'],
+            'entrance_y' => ['required', 'numeric', 'between:0,100'],
         ]);
         $layout = FloorLayout::query()->firstOrCreate(['id' => 1]);
         $layout->update($data);

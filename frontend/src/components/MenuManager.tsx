@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Button } from '@heroui/react'
-import { api, type MenuCategory, type MenuItem } from '../api'
+import { Button, Switch } from '@heroui/react'
+import { api, defaultDrinkOptions, type DrinkOptions, type DrinkSize, type MenuCategory, type MenuItem } from '../api'
 
 type Props = {
   categories: MenuCategory[]
@@ -12,15 +12,15 @@ type Props = {
 export function MenuManager({ categories, items, currency, onChanged }: Props) {
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [categoryName, setCategoryName] = useState('')
-  const [categoryOrder, setCategoryOrder] = useState('0')
   const [categoryActive, setCategoryActive] = useState(true)
   const [itemId, setItemId] = useState<number | null>(null)
   const [itemCategoryId, setItemCategoryId] = useState('')
   const [itemName, setItemName] = useState('')
   const [itemDescription, setItemDescription] = useState('')
   const [itemPrice, setItemPrice] = useState('')
-  const [itemOrder, setItemOrder] = useState('0')
   const [itemAvailable, setItemAvailable] = useState(true)
+  const [itemIsDrink, setItemIsDrink] = useState(false)
+  const [drinkOptions, setDrinkOptions] = useState<DrinkOptions>(defaultDrinkOptions)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -28,7 +28,6 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
   function resetCategory() {
     setCategoryId(null)
     setCategoryName('')
-    setCategoryOrder('0')
     setCategoryActive(true)
   }
 
@@ -38,14 +37,14 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
     setItemName('')
     setItemDescription('')
     setItemPrice('')
-    setItemOrder('0')
     setItemAvailable(true)
+    setItemIsDrink(false)
+    setDrinkOptions(defaultDrinkOptions())
   }
 
   function editCategory(category: MenuCategory) {
     setCategoryId(category.id)
     setCategoryName(category.name)
-    setCategoryOrder(String(category.sort_order))
     setCategoryActive(category.is_active)
     setError('')
     setMessage('')
@@ -57,8 +56,9 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
     setItemName(item.name)
     setItemDescription(item.description ?? '')
     setItemPrice(item.price)
-    setItemOrder(String(item.sort_order))
     setItemAvailable(item.is_available)
+    setItemIsDrink(item.is_drink)
+    setDrinkOptions(item.drink_options ?? defaultDrinkOptions())
     setError('')
     setMessage('')
   }
@@ -71,7 +71,6 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
     try {
       await api.saveCategory({
         name: categoryName.trim(),
-        sort_order: Number(categoryOrder),
         is_active: categoryActive,
       }, categoryId ?? undefined)
       await onChanged()
@@ -96,7 +95,8 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
         description: itemDescription.trim() || null,
         price: Number(itemPrice),
         is_available: itemAvailable,
-        sort_order: Number(itemOrder),
+        is_drink: itemIsDrink,
+        drink_options: itemIsDrink ? drinkOptions : null,
       }, itemId ?? undefined)
       await onChanged()
       resetItem()
@@ -140,13 +140,21 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
     }
   }
 
-  const categoryNames = new Map(categories.map((category) => [category.id, category.name]))
+  function toggleSize(size: DrinkSize, selected: boolean) {
+    setDrinkOptions((current) => ({
+      ...current,
+      sizes: selected ? [...current.sizes, size] : current.sizes.filter((entry) => entry !== size),
+    }))
+  }
+
+  const itemsByCategory = new Map(categories.map((category) => [category.id, [] as MenuItem[]]))
+  for (const item of items) itemsByCategory.get(item.menu_category_id)?.push(item)
 
   return (
     <div className="section-stack">
       <div className="section-heading">
         <div><p className="eyebrow">WHAT YOU SERVE</p><h1>Menu management</h1></div>
-        <p>Organize categories and keep prices and availability current.</p>
+        <p>Group your menu by category. Add each food or drink where staff will find it.</p>
       </div>
       {error && <div className="notice error-message" role="alert">{error}</div>}
       {message && <div className="notice success-message" role="status">{message}</div>}
@@ -158,12 +166,7 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
             <label className="field">Category name
               <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required maxLength={255} placeholder="e.g. Coffee" />
             </label>
-            <div className="form-grid">
-              <label className="field">Display order
-                <input type="number" min="0" value={categoryOrder} onChange={(event) => setCategoryOrder(event.target.value)} required />
-              </label>
-              <label className="field toggle-field"><input type="checkbox" checked={categoryActive} onChange={(event) => setCategoryActive(event.target.checked)} /> Active</label>
-            </div>
+            <Switch isSelected={categoryActive} onChange={setCategoryActive} className="menu-form-switch"><Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control>Active category</Switch.Content></Switch>
             <div className="form-actions">
               <Button type="submit" isDisabled={busy}>{categoryId ? 'Save category' : 'Add category'}</Button>
               {categoryId && <button type="button" className="text-button" onClick={resetCategory}>Cancel</button>}
@@ -173,7 +176,7 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
             {categories.length === 0 && <p className="empty-note">Add a category to start your menu.</p>}
             {categories.map((category) => (
               <div className="list-row" key={category.id}>
-                <div><strong>{category.name}</strong><small>{category.is_active ? 'Active' : 'Hidden'} · Order {category.sort_order}</small></div>
+                <div><strong>{category.name}</strong><small>{category.is_active ? 'Active' : 'Hidden'} · {itemsByCategory.get(category.id)?.length ?? 0} items</small></div>
                 <div className="row-actions">
                   <button type="button" onClick={() => editCategory(category)} disabled={busy}>Edit</button>
                   <button type="button" onClick={() => void removeCategory(category)} disabled={busy}>Delete</button>
@@ -202,27 +205,50 @@ export function MenuManager({ categories, items, currency, onChanged }: Props) {
               <label className="field">Price ({currency})
                 <input type="number" min="0" max="99999999.99" step="0.01" value={itemPrice} onChange={(event) => setItemPrice(event.target.value)} required placeholder="0.00" />
               </label>
-              <label className="field">Display order
-                <input type="number" min="0" value={itemOrder} onChange={(event) => setItemOrder(event.target.value)} required />
-              </label>
-              <label className="field toggle-field"><input type="checkbox" checked={itemAvailable} onChange={(event) => setItemAvailable(event.target.checked)} /> Available</label>
+              <Switch isSelected={itemAvailable} onChange={setItemAvailable} className="menu-form-switch"><Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control>Available for orders</Switch.Content></Switch>
+              <Switch isSelected={itemIsDrink} onChange={setItemIsDrink} className="drink-switch"><Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control>Drink</Switch.Content></Switch>
             </div>
+            {itemIsDrink && <fieldset className="drink-settings">
+              <legend>Choices offered for this drink</legend>
+              <p>Standard size is always available. Turn on only the choices you want staff to offer.</p>
+              <div className="drink-settings-grid">
+                {(['temperature', 'sugar', 'ice'] as const).map((choice) => <Switch key={choice} isSelected={drinkOptions[choice]} onChange={(selected) => setDrinkOptions((current) => ({ ...current, [choice]: selected }))}>
+                  <Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control>{choice === 'temperature' ? 'Hot or iced' : choice === 'sugar' ? 'Sugar level' : 'Ice level'}</Switch.Content>
+                </Switch>)}
+                <Switch isSelected={drinkOptions.sizes.includes('small')} onChange={(selected) => toggleSize('small', selected)}><Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control>Small size</Switch.Content></Switch>
+                <Switch isSelected={drinkOptions.sizes.includes('large')} onChange={(selected) => toggleSize('large', selected)}><Switch.Content><Switch.Control><Switch.Thumb /></Switch.Control>Large size</Switch.Content></Switch>
+              </div>
+            </fieldset>}
             <div className="form-actions">
               <Button type="submit" isDisabled={busy || categories.length === 0}>{itemId ? 'Save item' : 'Add item'}</Button>
               {itemId && <button type="button" className="text-button" onClick={resetItem}>Cancel</button>}
             </div>
           </form>
-          <div className="list-stack">
+          <div className="menu-groups">
             {items.length === 0 && <p className="empty-note">No menu items yet.</p>}
-            {items.map((item) => (
-              <div className="list-row" key={item.id}>
-                <div><strong>{item.name}</strong><small>{categoryNames.get(item.menu_category_id) ?? 'Unknown category'} · {item.is_available ? 'Available' : 'Unavailable'} · {currency} {item.price}</small></div>
-                <div className="row-actions">
-                  <button type="button" onClick={() => editItem(item)} disabled={busy}>Edit</button>
-                  <button type="button" onClick={() => void removeItem(item)} disabled={busy}>Delete</button>
+            {categories.map((category) => {
+              const categoryItems = itemsByCategory.get(category.id) ?? []
+              if (categoryItems.length === 0) return null
+
+              return <section className="menu-group" key={category.id} aria-label={category.name}>
+                <div className="menu-group-heading">
+                  <h3>{category.name}</h3>
+                  <span>{categoryItems.length} items</span>
                 </div>
-              </div>
-            ))}
+                <div className="list-stack">
+                  {categoryItems.map((item) => <div className="list-row" key={item.id}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      <small>{item.is_drink ? 'Drink' : 'Food'} · {item.is_available ? 'Available' : 'Unavailable'} · {currency} {item.price}</small>
+                    </div>
+                    <div className="row-actions">
+                      <button type="button" onClick={() => editItem(item)} disabled={busy}>Edit</button>
+                      <button type="button" onClick={() => void removeItem(item)} disabled={busy}>Delete</button>
+                    </div>
+                  </div>)}
+                </div>
+              </section>
+            })}
           </div>
         </section>
       </div>

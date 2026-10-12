@@ -11,10 +11,10 @@ class FloorLayout extends Model
     /** @use HasFactory<FloorLayoutFactory> */
     use HasFactory;
 
-    protected $fillable = ['entrance_side', 'entrance_offset'];
+    protected $fillable = ['entrance_x', 'entrance_y'];
 
     protected function casts(): array
     {
-        return ['entrance_offset' => 'decimal:2'];
+        return ['entrance_x' => 'decimal:2', 'entrance_y' => 'decimal:2'];
     }
 }

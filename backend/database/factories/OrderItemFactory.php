@@ -26,6 +26,8 @@ class OrderItemFactory extends Factory
             'unit_price' => '12.00',
             'quantity' => 1,
             'line_total' => '12.00',
+            'preparation' => null,
+            'remark' => null,
         ];
     }
 }

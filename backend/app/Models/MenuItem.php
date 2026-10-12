@@ -12,11 +12,11 @@ class MenuItem extends Model
     /** @use HasFactory<MenuItemFactory> */
     use HasFactory;
 
-    protected $fillable = ['menu_category_id', 'name', 'description', 'price', 'is_available', 'sort_order'];
+    protected $fillable = ['menu_category_id', 'name', 'description', 'price', 'is_available', 'sort_order', 'is_drink', 'drink_options'];
 
     protected function casts(): array
     {
-        return ['price' => 'decimal:2', 'is_available' => 'boolean'];
+        return ['price' => 'decimal:2', 'is_available' => 'boolean', 'is_drink' => 'boolean', 'drink_options' => 'array'];
     }
 
     public function category(): BelongsTo

@@ -13,6 +13,10 @@ export function BusinessSettings({ profile, onChanged }: Props) {
   const [address, setAddress] = useState(profile?.address ?? '')
   const [currency, setCurrency] = useState(profile?.currency ?? 'MYR')
   const [serviceMode, setServiceMode] = useState<BusinessProfile['service_mode']>(profile?.service_mode ?? 'both')
+  const [serviceChargeRate, setServiceChargeRate] = useState(profile?.service_charge_rate ?? '0')
+  const [taxRate, setTaxRate] = useState(profile?.tax_rate ?? '0')
+  const [qrFile, setQrFile] = useState<File | null>(null)
+  const [qrVersion, setQrVersion] = useState(0)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -29,6 +33,8 @@ export function BusinessSettings({ profile, onChanged }: Props) {
         address: address.trim() || null,
         currency: currency.trim().toUpperCase(),
         service_mode: serviceMode,
+        service_charge_rate: serviceChargeRate,
+        tax_rate: taxRate,
       })
       await onChanged()
       setMessage('Business details saved.')
@@ -37,6 +43,37 @@ export function BusinessSettings({ profile, onChanged }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function uploadQr(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!qrFile) return
+    const form = event.currentTarget
+    setSaving(true)
+    setError('')
+    setMessage('')
+    try {
+      await api.uploadPaymentQr(qrFile)
+      await onChanged()
+      setQrVersion(Date.now())
+      setQrFile(null)
+      form.reset()
+      setMessage('Payment QR image saved.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not upload payment QR image.')
+    } finally { setSaving(false) }
+  }
+
+  async function removeQr() {
+    setSaving(true)
+    setError('')
+    try {
+      await api.removePaymentQr()
+      await onChanged()
+      setMessage('Payment QR image removed.')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not remove payment QR image.')
+    } finally { setSaving(false) }
   }
 
   return (
@@ -66,6 +103,13 @@ export function BusinessSettings({ profile, onChanged }: Props) {
               <option value="takeaway">Takeaway only</option>
             </select>
           </label>
+          <label className="field">Service charge (%)
+            <input type="number" min="0" max="100" step="0.01" value={serviceChargeRate} onChange={(event) => setServiceChargeRate(event.target.value)} required />
+          </label>
+          <label className="field">Tax (%)
+            <input type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} required />
+          </label>
+          <p className="field-wide billing-hint">Both rates start at 0%. Tax is calculated after the discount and service charge. Set rates that apply to your business.</p>
         </div>
         <div className="form-actions">
           <Button type="submit" isDisabled={saving}>{saving ? 'Saving…' : 'Save details'}</Button>
@@ -73,6 +117,18 @@ export function BusinessSettings({ profile, onChanged }: Props) {
           {error && <span className="error-message" role="alert">{error}</span>}
         </div>
       </form>
+      <section className="panel form-panel payment-qr-settings">
+        <div className="panel-heading"><h2>Counter payment QR</h2></div>
+        <p>Upload the official QR image issued by your bank or payment provider. Staff will display it beside the bill and confirm payment in the provider app.</p>
+        {!profile && <p>Save your business details before uploading a payment QR.</p>}
+        {profile?.has_payment_qr && <img src={`/api/v1/business/payment-qr?v=${qrVersion}`} alt="Business payment QR code" />}
+        <form onSubmit={(event) => void uploadQr(event)}>
+          <label className="field">QR image (PNG, JPG, or WebP; up to 2 MB)
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setQrFile(event.target.files?.[0] ?? null)} required />
+          </label>
+          <div className="form-actions"><Button type="submit" isDisabled={saving || !qrFile || !profile}>Upload QR</Button>{profile?.has_payment_qr && <Button type="button" variant="secondary" isDisabled={saving} onPress={() => void removeQr()}>Remove QR</Button>}</div>
+        </form>
+      </section>
     </div>
   )
 }
