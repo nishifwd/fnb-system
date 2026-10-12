@@ -12,6 +12,7 @@ export function BusinessSettings({ profile, onChanged }: Props) {
   const [phone, setPhone] = useState(profile?.phone ?? '')
   const [address, setAddress] = useState(profile?.address ?? '')
   const [currency, setCurrency] = useState(profile?.currency ?? 'MYR')
+  const [serviceMode, setServiceMode] = useState<BusinessProfile['service_mode']>(profile?.service_mode ?? 'both')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -27,6 +28,7 @@ export function BusinessSettings({ profile, onChanged }: Props) {
         phone: phone.trim() || null,
         address: address.trim() || null,
         currency: currency.trim().toUpperCase(),
+        service_mode: serviceMode,
       })
       await onChanged()
       setMessage('Business details saved.')
@@ -56,6 +58,13 @@ export function BusinessSettings({ profile, onChanged }: Props) {
           </label>
           <label className="field field-wide">Address
             <textarea value={address} onChange={(event) => setAddress(event.target.value)} rows={4} maxLength={2000} placeholder="Optional business address" />
+          </label>
+          <label className="field field-wide">Order types
+            <select value={serviceMode} onChange={(event) => setServiceMode(event.target.value as BusinessProfile['service_mode'])}>
+              <option value="both">Dine-in and takeaway</option>
+              <option value="dine_in">Dine-in only</option>
+              <option value="takeaway">Takeaway only</option>
+            </select>
           </label>
         </div>
         <div className="form-actions">

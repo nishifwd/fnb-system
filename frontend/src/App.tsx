@@ -125,6 +125,7 @@ function App() {
             if (item.id === 'staff') return user.role === 'owner'
             if (item.id === 'orders') return user.role !== 'kitchen'
             if (item.id === 'kitchen') return user.role !== 'waiter'
+            if (item.id === 'tables' && snapshot?.business?.service_mode === 'takeaway') return false
             return canManage
           }).map((item) => (
             <button key={item.id} type="button" className={`nav-item${section === item.id ? ' active' : ''}`} onClick={() => setSection(item.id)}>
@@ -145,16 +146,16 @@ function App() {
           {!loading && snapshot && section === 'overview' && (
             <div className="section-stack">
               <div className="welcome-panel">
-                <div><p className="eyebrow">GOOD TO SEE YOU</p><h1>{snapshot.business?.name || 'Your restaurant starts here.'}</h1><p>Keep your business details, menu, and tables ready for the next service.</p><Button variant="secondary" onPress={() => setSection('business')}>Business settings</Button></div>
+                <div><p className="eyebrow">GOOD TO SEE YOU</p><h1>{snapshot.business?.name || 'Your restaurant starts here.'}</h1><p>Keep your business details and menu ready for the next service.</p><Button variant="secondary" onPress={() => setSection('business')}>Business settings</Button></div>
                 <div className="welcome-decoration" aria-hidden="true"><span /><span /><span /></div>
               </div>
               <div className="stats-grid">
                 <button type="button" className="stat-card" onClick={() => setSection('business')}><span>Business profile</span><strong>{snapshot.business ? 'Ready' : 'Set up'}</strong><small>{snapshot.business ? snapshot.business.currency : 'Add your details'} ↗</small></button>
                 <button type="button" className="stat-card" onClick={() => setSection('menu')}><span>Menu categories</span><strong>{snapshot.categories.length}</strong><small>Manage categories ↗</small></button>
                 <button type="button" className="stat-card" onClick={() => setSection('menu')}><span>Menu items</span><strong>{snapshot.items.length}</strong><small>Manage items ↗</small></button>
-                <button type="button" className="stat-card" onClick={() => setSection('tables')}><span>Dining tables</span><strong>{snapshot.tables.length}</strong><small>{snapshot.areas.length} areas · Arrange floor ↗</small></button>
+                {snapshot.business?.service_mode !== 'takeaway' && <button type="button" className="stat-card" onClick={() => setSection('tables')}><span>Dining tables</span><strong>{snapshot.tables.length}</strong><small>{snapshot.areas.length} areas · Arrange floor ↗</small></button>}
               </div>
-              <div className="panel next-step-panel"><div><p className="eyebrow">BUILDING BLOCKS</p><h2>Prepare your workspace</h2><p>Set up your business, menu, and tables, then use Orders and Kitchen during service. QR codes and invoices come in later phases.</p></div><Button variant="secondary" onPress={() => setSection('menu')}>Manage menu</Button></div>
+              <div className="panel next-step-panel"><div><p className="eyebrow">BUILDING BLOCKS</p><h2>Prepare your workspace</h2><p>Set up your business and menu, then use Orders and Kitchen during service. QR codes and invoices come in later phases.</p></div><Button variant="secondary" onPress={() => setSection('menu')}>Manage menu</Button></div>
             </div>
           )}
           {!loading && snapshot && section === 'business' && <BusinessSettings profile={snapshot.business} onChanged={refresh} />}

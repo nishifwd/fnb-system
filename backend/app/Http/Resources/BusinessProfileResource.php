@@ -20,6 +20,7 @@ class BusinessProfileResource extends JsonResource
             'phone' => $this->phone,
             'address' => $this->address,
             'currency' => $this->currency,
+            'service_mode' => $this->service_mode,
         ];
     }
 }

@@ -4,6 +4,7 @@ export type BusinessProfile = {
   phone: string | null
   address: string | null
   currency: string
+  service_mode: 'dine_in' | 'takeaway' | 'both'
 }
 
 export type StaffRole = 'owner' | 'manager' | 'waiter' | 'kitchen'
@@ -11,10 +12,16 @@ export type StaffUser = { id: number, name: string, email: string, role: StaffRo
 export type StaffInput = { name: string, email: string, role: Exclude<StaffRole, 'owner'>, password: string }
 export type ServiceTable = DiningTable & { area: string }
 export type ServiceMenuItem = { id: number, name: string, price: string, category: string }
-export type ServiceCatalog = { tables: ServiceTable[], areas: FloorArea[], layout: FloorLayout, menu: ServiceMenuItem[], currency: string }
+export type ServiceCatalog = { tables: ServiceTable[], areas: FloorArea[], layout: FloorLayout, menu: ServiceMenuItem[], currency: string, service_mode: BusinessProfile['service_mode'] }
 export type OrderStatus = 'placed' | 'preparing' | 'ready' | 'served'
 export type OrderLine = { id: number, menu_item_id: number | null, name: string, unit_price: string, quantity: number, line_total: string }
-export type ServiceOrder = { id: number, dining_table_id: number, table_label: string, status: OrderStatus, total: string, note: string | null, created_at: string, items: OrderLine[] }
+export type ServiceOrder = { id: number, dining_table_id: number | null, table_label: string | null, order_type: 'dine_in' | 'takeaway', pickup_name: string | null, status: OrderStatus, total: string, note: string | null, created_at: string, items: OrderLine[] }
+
+export function orderDestination(order: ServiceOrder): string {
+  return order.order_type === 'takeaway'
+    ? `Takeaway${order.pickup_name ? ` · ${order.pickup_name}` : ''}`
+    : `Table ${order.table_label ?? '?'}`
+}
 
 export class ApiError extends Error {
   status: number
@@ -134,7 +141,7 @@ export const api = {
   deleteStaff: (id: number) => request<void>(`/staff/${id}`, 'DELETE'),
   serviceCatalog: () => request<ServiceCatalog>('/service/catalog'),
   orders: () => request<ServiceOrder[]>('/orders'),
-  placeOrder: (data: { dining_table_id: number, note: string | null, items: { menu_item_id: number, quantity: number }[] }) =>
+  placeOrder: (data: { order_type: 'dine_in' | 'takeaway', dining_table_id?: number, pickup_name?: string | null, note: string | null, items: { menu_item_id: number, quantity: number }[] }) =>
     request<ServiceOrder>('/orders', 'POST', data),
   updateOrderStatus: (id: number, status: OrderStatus) => request<ServiceOrder>(`/orders/${id}/status`, 'PATCH', { status }),
   health: async () => {

@@ -26,6 +26,7 @@ class OrderWorkflowTest extends TestCase
             ->assertJsonPath('data.menu.0.name', 'Flat White');
 
         $order = $this->actingAs($waiter)->postJson('/api/v1/orders', [
+            'order_type' => Order::DINE_IN,
             'dining_table_id' => $table->id,
             'note' => 'No sugar',
             'items' => [['menu_item_id' => $item->id, 'quantity' => 2]],
@@ -59,11 +60,13 @@ class OrderWorkflowTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => User::ROLE_WAITER]));
 
         $this->postJson('/api/v1/orders', [
+            'order_type' => Order::DINE_IN,
             'dining_table_id' => $table->id,
             'items' => [['menu_item_id' => $item->id, 'quantity' => 1]],
         ])->assertUnprocessable()->assertJsonValidationErrors('items');
 
         $this->postJson('/api/v1/orders', [
+            'order_type' => Order::DINE_IN,
             'dining_table_id' => $table->id,
             'items' => [['menu_item_id' => $item->id, 'quantity' => 0]],
         ])->assertUnprocessable()->assertJsonValidationErrors('items.0.quantity');
@@ -78,6 +81,7 @@ class OrderWorkflowTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => User::ROLE_KITCHEN]));
 
         $this->postJson('/api/v1/orders', [
+            'order_type' => Order::DINE_IN,
             'dining_table_id' => $table->id,
             'items' => [['menu_item_id' => $item->id, 'quantity' => 1]],
         ])->assertForbidden();

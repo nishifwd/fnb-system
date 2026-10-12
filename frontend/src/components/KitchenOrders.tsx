@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@heroui/react'
-import { api, type ServiceOrder } from '../api'
+import { api, orderDestination, type ServiceOrder } from '../api'
 
 export function KitchenOrders() {
   const [orders, setOrders] = useState<ServiceOrder[]>([])
@@ -32,6 +32,6 @@ export function KitchenOrders() {
     <div className="section-heading"><div><p className="eyebrow">KITCHEN WORKFLOW</p><h1>Kitchen board</h1></div><p>Orders refresh every 10 seconds. Start preparation, then mark each order ready.</p></div>
     {error && <div className="error-message" role="alert">{error}</div>}
     <div className="service-heading"><span>{orders.length} open orders</span><Button variant="secondary" onPress={() => void refresh().catch((caught) => setError(caught instanceof Error ? caught.message : 'Could not refresh.'))}>Refresh</Button></div>
-    <div className="kitchen-columns">{(['placed', 'preparing', 'ready'] as const).map((status) => <section className="panel kitchen-column" key={status}><h2>{status === 'placed' ? 'New' : status === 'preparing' ? 'Preparing' : 'Ready for service'}</h2><div className="order-list">{orders.filter((order) => order.status === status).map((order) => <div className="order-card" key={order.id}><div className="order-card-head"><div><strong>#{order.id} · {order.table_label}</strong><small>{new Date(order.created_at).toLocaleTimeString()}</small></div><span className={`order-status ${status}`}>{status}</span></div><ul>{order.items.map((item) => <li key={item.id}>{item.quantity} × {item.name}</li>)}</ul>{order.note && <p className="order-note">Note: {order.note}</p>}{status !== 'ready' && <Button isDisabled={busyId === order.id} onPress={() => void advance(order)}>{status === 'placed' ? 'Start preparing' : 'Mark ready'}</Button>}</div>)}</div>{orders.every((order) => order.status !== status) && <p className="column-empty">No orders here.</p>}</section>)}</div>
+    <div className="kitchen-columns">{(['placed', 'preparing', 'ready'] as const).map((status) => <section className="panel kitchen-column" key={status}><h2>{status === 'placed' ? 'New' : status === 'preparing' ? 'Preparing' : 'Ready for pickup or service'}</h2><div className="order-list">{orders.filter((order) => order.status === status).map((order) => <div className="order-card" key={order.id}><div className="order-card-head"><div><strong>#{order.id} · {orderDestination(order)}</strong><small>{new Date(order.created_at).toLocaleTimeString()}</small></div><span className={`order-status ${status}`}>{status}</span></div><ul>{order.items.map((item) => <li key={item.id}>{item.quantity} × {item.name}</li>)}</ul>{order.note && <p className="order-note">Note: {order.note}</p>}{status !== 'ready' && <Button isDisabled={busyId === order.id} onPress={() => void advance(order)}>{status === 'placed' ? 'Start preparing' : 'Mark ready'}</Button>}</div>)}</div>{orders.every((order) => order.status !== status) && <p className="column-empty">No orders here.</p>}</section>)}</div>
   </div>
 }

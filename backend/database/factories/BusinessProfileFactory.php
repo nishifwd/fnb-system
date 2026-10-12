@@ -22,6 +22,7 @@ class BusinessProfileFactory extends Factory
             'phone' => fake()->phoneNumber(),
             'address' => fake()->address(),
             'currency' => 'MYR',
+            'service_mode' => 'both',
         ];
     }
 }

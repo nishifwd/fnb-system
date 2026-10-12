@@ -18,10 +18,14 @@ class Order extends Model
 
     public const SERVED = 'served';
 
+    public const DINE_IN = 'dine_in';
+
+    public const TAKEAWAY = 'takeaway';
+
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
-    protected $fillable = ['dining_table_id', 'created_by', 'status', 'total', 'note'];
+    protected $fillable = ['dining_table_id', 'created_by', 'status', 'total', 'note', 'order_type', 'pickup_name'];
 
     protected function casts(): array
     {

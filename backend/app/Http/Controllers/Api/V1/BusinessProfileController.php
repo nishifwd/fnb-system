@@ -7,6 +7,7 @@ use App\Http\Resources\BusinessProfileResource;
 use App\Models\BusinessProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BusinessProfileController extends Controller
 {
@@ -26,6 +27,7 @@ class BusinessProfileController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:2000'],
             'currency' => ['required', 'regex:/^[A-Z]{3}$/'],
+            'service_mode' => ['required', Rule::in(['dine_in', 'takeaway', 'both'])],
         ]);
 
         $profile = BusinessProfile::query()->updateOrCreate(['id' => 1], $data);

@@ -14,6 +14,10 @@
 .staff-form { margin-top: 20px; }
 .staff-list { margin-top: 18px; }
 .service-grid { display: grid; grid-template-columns: minmax(560px, 1.2fr) minmax(320px, .8fr); align-items: start; gap: 18px; }
+.service-grid.takeaway-grid { grid-template-columns: minmax(0, 780px); }
+.service-mode-tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #dce8da; border-radius: 12px; background: #eef5ed; }
+.service-mode-tabs button { padding: 9px 18px; border: 0; border-radius: 9px; background: transparent; color: #60816a; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+.service-mode-tabs button.active { background: #fff; color: #245a3a; box-shadow: 0 2px 7px #1f4b3020; }
 .service-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .service-heading span { color: #63876b; font-size: 12px; font-weight: 750; }
 .service-board-wrap { max-width: 100%; overflow-x: auto; }

@@ -30,6 +30,7 @@ class ManagementApiTest extends TestCase
             'phone' => '03-1234 5678',
             'address' => 'Kuala Lumpur',
             'currency' => 'MYR',
+            'service_mode' => 'both',
         ])->assertCreated()->assertJsonPath('data.name', 'Kopi Corner');
 
         $this->getJson('/api/v1/business')->assertOk()->assertJsonPath('data.currency', 'MYR');

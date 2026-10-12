@@ -23,6 +23,8 @@ class OrderFactory extends Factory
             'dining_table_id' => DiningTable::factory(),
             'created_by' => User::factory(),
             'status' => Order::PLACED,
+            'order_type' => Order::DINE_IN,
+            'pickup_name' => null,
             'total' => '0.00',
             'note' => null,
         ];

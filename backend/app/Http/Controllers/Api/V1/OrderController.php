@@ -22,6 +22,7 @@ class OrderController extends Controller
 {
     public function catalog(): JsonResponse
     {
+        $business = BusinessProfile::query()->first();
         $tables = DiningTable::query()->with('area')->orderBy('label')->get()->map(fn (DiningTable $table): array => [
             'id' => $table->id,
             'label' => $table->label,
@@ -49,7 +50,8 @@ class OrderController extends Controller
             'areas' => FloorArea::query()->orderBy('sort_order')->get(['id', 'name', 'sort_order', 'position_x', 'position_y', 'width', 'height']),
             'layout' => FloorLayout::query()->firstOrCreate(['id' => 1])->only(['entrance_side', 'entrance_offset']),
             'menu' => $menu,
-            'currency' => BusinessProfile::query()->first()?->currency ?? 'MYR',
+            'currency' => $business?->currency ?? 'MYR',
+            'service_mode' => $business?->service_mode ?? 'both',
         ]]);
     }
 
@@ -66,12 +68,19 @@ class OrderController extends Controller
         Gate::authorize('place-orders');
 
         $data = $request->validate([
-            'dining_table_id' => ['required', 'integer', 'exists:dining_tables,id'],
+            'order_type' => ['required', Rule::in([Order::DINE_IN, Order::TAKEAWAY])],
+            'dining_table_id' => ['required_if:order_type,dine_in', 'prohibited_if:order_type,takeaway', 'integer', 'exists:dining_tables,id'],
+            'pickup_name' => ['nullable', 'string', 'max:100', 'prohibited_if:order_type,dine_in'],
             'note' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1', 'max:30'],
             'items.*.menu_item_id' => ['required', 'integer', 'distinct', 'exists:menu_items,id'],
             'items.*.quantity' => ['required', 'integer', 'between:1,20'],
         ]);
+
+        $serviceMode = BusinessProfile::query()->first()?->service_mode ?? 'both';
+        if ($serviceMode !== 'both' && $serviceMode !== $data['order_type']) {
+            throw ValidationException::withMessages(['order_type' => 'This order type is disabled in business settings.']);
+        }
 
         $menuItems = MenuItem::query()->with('category')
             ->whereIn('id', array_column($data['items'], 'menu_item_id'))->get()->keyBy('id');
@@ -102,9 +111,11 @@ class OrderController extends Controller
 
         $order = DB::transaction(function () use ($data, $lines, $request, $totalCents): Order {
             $order = Order::query()->create([
-                'dining_table_id' => $data['dining_table_id'],
+                'dining_table_id' => $data['dining_table_id'] ?? null,
                 'created_by' => $request->user()->id,
                 'status' => Order::PLACED,
+                'order_type' => $data['order_type'],
+                'pickup_name' => $data['pickup_name'] ?? null,
                 'total' => number_format($totalCents / 100, 2, '.', ''),
                 'note' => $data['note'] ?? null,
             ]);
